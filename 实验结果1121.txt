@@ -1,0 +1,207 @@
+说明：将features原始加速度数据，四元数等特征去除
+使验证集与测试集相同
+
+
+(base) PS C:\Users\62575\OneDrive\我的实验1116> python -u run.py --task_name classification --is_training 1 --root_path D:/实验数据/ --model_id epochs50 --model TimesNet  --data UEA  --e_layers 3 --batch_size 8  --d_model 64  --d_ff 256 --top_k 3 --num_kernels 1  --des 'Exp'  --itr 1 --learning_rate 0.00001 --train_epochs 30  --patience 10  --num_workers 0
+Args in experiment:
+Namespace(task_name='classification', is_training=1, model_id='epochs50', model='TimesNet', data='UEA', root_path='D:/实验数据/', data_path='ETTh1.csv', features='M', target='OT', freq='h', checkpoints='./checkpoints/', seq_len=96, label_len=48, pred_len=96, seasonal_patterns='Monthly', inverse=False, mask_rate=0.25, anomaly_ratio=0.25, top_k=3, num_kernels=1, enc_in=7, dec_in=7, c_out=7, d_model=64, n_heads=8, e_layers=3, d_layers=1, d_ff=256, moving_avg=25, factor=1, distil=True, dropout=0.1, embed='timeF', activation='gelu', output_attention=False, num_workers=0, itr=1, train_epochs=30, batch_size=8, patience=10, learning_rate=1e-05, des='Exp', loss='MSE', lradj='type1', use_amp=False, use_gpu=True, gpu=0, use_multi_gpu=False, devices='0,1', p_hidden_dims=[128, 128], p_hidden_layers=2)
+Use GPU: cuda:0
+**********************************************************
+读取文件夹： 1_1_normal_2023-10-15_08-24
+文件夹： 1_1_normal_2023-10-15_08-24 已经存在清洗后的数据！
+行程ID： 0     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 1_2_normal_2023-10-15_14-01
+文件夹： 1_2_normal_2023-10-15_14-01 已经存在清洗后的数据！
+行程ID： 1     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 1_3_normal_2023-10-28_07_15
+文件夹： 1_3_normal_2023-10-28_07_15 已经存在清洗后的数据！
+行程ID： 2     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 1_4_normal_2023-10-28_13-06
+文件夹： 1_4_normal_2023-10-28_13-06 已经存在清洗后的数据！
+行程ID： 3     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 1_5_aggressive_2023-10-21_07-55
+文件夹： 1_5_aggressive_2023-10-21_07-55 已经存在清洗后的数据！
+行程ID： 4     行程标签： aggressive
+**********************************************************
+**********************************************************
+读取文件夹： 1_6_normal_2023-11-04_14-56
+文件夹： 1_6_normal_2023-11-04_14-56 已经存在清洗后的数据！
+行程ID： 5     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 1_7_aggressive_2023-11-04_08-12
+文件夹： 1_7_aggressive_2023-11-04_08-12 已经存在清洗后的数据！
+行程ID： 6     行程标签： aggressive
+**********************************************************
+**********************************************************
+读取文件夹： 2_1_normal_2013-10-29_13-42
+文件夹： 2_1_normal_2013-10-29_13-42 已经存在清洗后的数据！
+Warning: There are missing values in the data
+Columns with missing values: Index(['pitch'], dtype='object')
+行程ID： 7     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 2_2_normal_2013-10-29_15-24
+文件夹： 2_2_normal_2013-10-29_15-24 已经存在清洗后的数据！
+行程ID： 8     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 3_10_normal_2023-10-23_08-31
+文件夹： 3_10_normal_2023-10-23_08-31 已经存在清洗后的数据！
+行程ID： 9     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 3_11_normal_2023-10-23_15-18
+文件夹： 3_11_normal_2023-10-23_15-18 已经存在清洗后的数据！
+行程ID： 10     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 3_12_normal_2023-10-21_16-10
+文件夹： 3_12_normal_2023-10-21_16-10 已经存在清洗后的数据！
+行程ID： 11     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 3_13_normal_2023-10-19_08-31
+文件夹： 3_13_normal_2023-10-19_08-31 已经存在清洗后的数据！
+行程ID： 12     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 3_1_normal_2023-10-19_12-51
+文件夹： 3_1_normal_2023-10-19_12-51 已经存在清洗后的数据！
+行程ID： 13     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 3_2_normal_2023-10-18_08-04
+文件夹： 3_2_normal_2023-10-18_08-04 已经存在清洗后的数据！
+行程ID： 14     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 3_3_normal_2023-10-19_17-03
+文件夹： 3_3_normal_2023-10-19_17-03 已经存在清洗后的数据！
+行程ID： 15     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 3_4_normal_2023-10-19_08-16
+文件夹： 3_4_normal_2023-10-19_08-16 已经存在清洗后的数据！
+行程ID： 16     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 3_5_aggressive_2023-10-25_08-25
+文件夹： 3_5_aggressive_2023-10-25_08-25 已经存在清洗后的数据！
+行程ID： 17     行程标签： aggressive
+**********************************************************
+**********************************************************
+读取文件夹： 3_6_aggressive_2023-10-27_08-20
+文件夹： 3_6_aggressive_2023-10-27_08-20 已经存在清洗后的数据！
+行程ID： 18     行程标签： aggressive
+**********************************************************
+**********************************************************
+读取文件夹： 3_7_aggressive_2023-10-28_08-16
+文件夹： 3_7_aggressive_2023-10-28_08-16 已经存在清洗后的数据！
+行程ID： 19     行程标签： aggressive
+**********************************************************
+**********************************************************
+读取文件夹： 3_8_normal_2023-10-25_15-45
+文件夹： 3_8_normal_2023-10-25_15-45 已经存在清洗后的数据！
+行程ID： 20     行程标签： normal
+**********************************************************
+**********************************************************
+读取文件夹： 3_9_normal_2023-10-23_14-16
+文件夹： 3_9_normal_2023-10-23_14-16 已经存在清洗后的数据！
+行程ID： 21     行程标签： normal
+**********************************************************
+数据读取结束！共读取 22 次行程。
+训练集行程ID： [4, 21, 1, 14, 10, 12, 16, 13, 6, 3, 9, 18, 2, 7, 20]
+验证集行程ID： [17, 8, 15, 19, 5, 0, 11]
+测试集行程ID： [17, 8, 15, 19, 5, 0, 11]
+train_data all_IDs Index([4, 21, 1, 14, 10, 12, 16, 13, 6, 3, 9, 18, 2, 7, 20], dtype='int64')
+train_data feature_df Index([17, 8, 15, 19, 5, 0, 11], dtype='int64')
+train_data <data_provider.MyDataLoader.MyDataLoader object at 0x000001D8671E4040>
+self.train_data.all_df         roll     pitch       yaw     z_gra     y_gra  ...   longitude   latitude  x_acc_clean  y_acc_clean  z_acc_clean
+4   0.138060 -1.395174 -0.904526  1.697023  9.655822  ...  103.882810  36.066320    -0.019849    -0.067974    -0.592049
+4   0.160103 -1.353591 -0.902982  2.086260  9.576241  ...  103.882810  36.066320    -0.212186    -0.090133    -0.251447
+4   0.161230 -1.354797 -0.902322  2.074462  9.578787  ...  103.882810  36.066320    -0.345322    -0.338746    -0.228639
+4   0.161771 -1.354069 -0.901903  2.081132  9.577262  ...  103.882810  36.066320    -0.222356    -0.211187     0.031600
+4   0.160515 -1.353703 -0.903097  2.085011  9.576491  ...  103.882810  36.066320    -0.188772    -0.145296     0.010045
+..       ...       ...       ...       ...       ...  ...         ...        ...          ...          ...          ...
+20 -0.041085  1.166962 -0.646988 -3.850244 -9.017813  ...  114.766452  34.550311    -0.022134    -0.043413    -0.033785
+20 -0.040955  1.167215 -0.647011 -3.847985 -9.018788  ...  114.766452  34.550311    -0.001408     0.000158    -0.011483
+20 -0.043174  1.167826 -0.644926 -3.842122 -9.021139  ...  114.766452  34.550311     0.017801     0.028635    -0.005969
+20 -0.042772  1.167916 -0.645298 -3.841377 -9.021484  ...  114.766452  34.550311     0.042971     0.051721    -0.011320
+20 -0.040392  1.168106 -0.646827 -3.840041 -9.022216  ...  114.766452  34.550311     0.097308     0.042703     0.020065
+
+[331379 rows x 18 columns]
+self.args.seq_len 61227
+>>>>>>>start training : epochs50_TimesNet_UEA_ftM_sl96_ll48_pl96_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_0>>>>>>>>>>>>>>>>>>>>>>>>>>
+Epoch: 1 cost time: 16.65559673309326
+Epoch: 1, Steps: 2 | Train Loss: 1.202 Vali Loss: 3.688 Vali Acc: 0.714 Test Loss: 3.688 Test Acc: 0.714
+Validation loss decreased (inf --> -0.714286).  Saving model ...
+Epoch: 2 cost time: 12.186847686767578
+Epoch: 2, Steps: 2 | Train Loss: 1.265 Vali Loss: 2.432 Vali Acc: 0.571 Test Loss: 2.432 Test Acc: 0.571
+EarlyStopping counter: 1 out of 10
+Epoch: 3 cost time: 12.22736930847168
+Epoch: 3, Steps: 2 | Train Loss: 0.899 Vali Loss: 2.218 Vali Acc: 0.571 Test Loss: 2.218 Test Acc: 0.571
+EarlyStopping counter: 2 out of 10
+Epoch: 4 cost time: 12.15976333618164
+Epoch: 4, Steps: 2 | Train Loss: 0.354 Vali Loss: 1.133 Vali Acc: 0.571 Test Loss: 1.133 Test Acc: 0.571
+EarlyStopping counter: 3 out of 10
+Epoch: 5 cost time: 11.954048156738281
+Epoch: 5, Steps: 2 | Train Loss: 0.255 Vali Loss: 1.401 Vali Acc: 0.429 Test Loss: 1.401 Test Acc: 0.429
+EarlyStopping counter: 4 out of 10
+Updating learning rate to 6.25e-07
+Epoch: 6 cost time: 12.109270334243774
+Epoch: 6, Steps: 2 | Train Loss: 0.412 Vali Loss: 1.219 Vali Acc: 0.571 Test Loss: 1.219 Test Acc: 0.571
+EarlyStopping counter: 5 out of 10
+Epoch: 7 cost time: 12.158149480819702
+Epoch: 7, Steps: 2 | Train Loss: 0.367 Vali Loss: 0.884 Vali Acc: 0.571 Test Loss: 0.884 Test Acc: 0.571
+EarlyStopping counter: 6 out of 10
+Epoch: 8 cost time: 11.353119373321533
+Epoch: 8, Steps: 2 | Train Loss: 0.257 Vali Loss: 0.547 Vali Acc: 0.714 Test Loss: 0.547 Test Acc: 0.714
+Validation loss decreased (-0.714286 --> -0.714286).  Saving model ...
+Epoch: 9 cost time: 11.574739933013916
+Epoch: 9, Steps: 2 | Train Loss: 0.127 Vali Loss: 0.347 Vali Acc: 0.857 Test Loss: 0.347 Test Acc: 0.857
+Validation loss decreased (-0.714286 --> -0.857143).  Saving model ...
+Epoch: 10 cost time: 12.852599620819092
+Epoch: 10, Steps: 2 | Train Loss: 0.068 Vali Loss: 0.388 Vali Acc: 0.714 Test Loss: 0.388 Test Acc: 0.714
+EarlyStopping counter: 1 out of 10
+Updating learning rate to 1.953125e-08
+Epoch: 11 cost time: 13.025238752365112
+Epoch: 11, Steps: 2 | Train Loss: 0.054 Vali Loss: 0.392 Vali Acc: 0.714 Test Loss: 0.392 Test Acc: 0.714
+EarlyStopping counter: 2 out of 10
+Epoch: 12 cost time: 12.216580867767334
+Epoch: 12, Steps: 2 | Train Loss: 0.048 Vali Loss: 0.396 Vali Acc: 0.714 Test Loss: 0.396 Test Acc: 0.714
+EarlyStopping counter: 3 out of 10
+Epoch: 13 cost time: 11.981635570526123
+Epoch: 13, Steps: 2 | Train Loss: 0.056 Vali Loss: 0.400 Vali Acc: 0.714 Test Loss: 0.400 Test Acc: 0.714
+EarlyStopping counter: 4 out of 10
+Epoch: 14 cost time: 12.386805772781372
+Epoch: 14, Steps: 2 | Train Loss: 0.048 Vali Loss: 0.405 Vali Acc: 0.714 Test Loss: 0.405 Test Acc: 0.714
+EarlyStopping counter: 5 out of 10
+Epoch: 15 cost time: 12.195090055465698
+Epoch: 15, Steps: 2 | Train Loss: 0.053 Vali Loss: 0.409 Vali Acc: 0.714 Test Loss: 0.409 Test Acc: 0.714
+EarlyStopping counter: 6 out of 10
+Updating learning rate to 6.103515625e-10
+Epoch: 16 cost time: 12.398056983947754
+Epoch: 16, Steps: 2 | Train Loss: 0.052 Vali Loss: 0.409 Vali Acc: 0.714 Test Loss: 0.409 Test Acc: 0.714
+EarlyStopping counter: 7 out of 10
+Epoch: 17 cost time: 12.376553058624268
+Epoch: 17, Steps: 2 | Train Loss: 0.053 Vali Loss: 0.409 Vali Acc: 0.714 Test Loss: 0.409 Test Acc: 0.714
+EarlyStopping counter: 8 out of 10
+Epoch: 18 cost time: 13.067739725112915
+Epoch: 18, Steps: 2 | Train Loss: 0.047 Vali Loss: 0.409 Vali Acc: 0.714 Test Loss: 0.409 Test Acc: 0.714
+EarlyStopping counter: 9 out of 10
+Epoch: 19 cost time: 13.420801639556885
+Epoch: 19, Steps: 2 | Train Loss: 0.057 Vali Loss: 0.409 Vali Acc: 0.714 Test Loss: 0.409 Test Acc: 0.714
+EarlyStopping counter: 10 out of 10
+Early stopping
+>>>>>>>testing : epochs50_TimesNet_UEA_ftM_sl96_ll48_pl96_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_0<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+test shape: torch.Size([7, 2]) torch.Size([7, 1])
+accuracy:0.8571428571428571

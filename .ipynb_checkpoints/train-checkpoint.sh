@@ -1,0 +1,2 @@
+export CUDA_VISIBLE_DEVICES=0
+python -u run.py --task_name classification --is_training 1 --root_path ../dataset/train --model_id test --model TimesNet  --data UEA  --e_layers 3 --batch_size 2  --d_model 64  --d_ff 256 --top_k 3 --num_kernels 1  --des 'Exp'  --itr 1 --learning_rate 0.000001 --train_epochs 20  --patience 10  --num_workers 0
