@@ -1,0 +1,9 @@
+random11_TimesNet_UEA_ftM_sl96_ll48_pl96_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_0  
+行程ID: 8, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 9, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 17, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 18, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 19, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 20, 行程标签: 正常, Voted Prediction: 激进, 错误行程ID: 21, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 25, 行程标签: 激进, Voted Prediction: 正常, 错误行程ID: 28, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 29, 行程标签: 正常, Voted Prediction: 正常, 正确accuracy:0.8
+
+random11_TimesNet_UEA_ftM_sl96_ll48_pl96_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_0  
+行程ID: 8, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 9, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 17, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 18, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 19, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 20, 行程标签: 正常, Voted Prediction: 激进, 错误行程ID: 21, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 25, 行程标签: 激进, Voted Prediction: 正常, 错误行程ID: 28, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 29, 行程标签: 正常, Voted Prediction: 正常, 正确accuracy:0.8
+
+random11_TimesNet_UEA_ftM_sl96_ll48_pl96_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_0  
+行程ID: 8, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 9, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 17, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 18, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 19, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 20, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 21, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 25, 行程标签: 激进, Voted Prediction: 正常, 错误行程ID: 28, 行程标签: 正常, Voted Prediction: 正常, 正确行程ID: 29, 行程标签: 正常, Voted Prediction: 正常, 正确accuracy:0.9
+
