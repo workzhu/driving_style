@@ -32,6 +32,8 @@ class Exp_Classification(Exp_Basic):
         # 获取窗口特征维度
         self.args.window_feature_dim = len(self.train_data.windows[0].window_features)
 
+        print("window_feature_dim", self.args.window_feature_dim)
+
         # 获取标签数
         self.args.num_class = len(self.train_data.dataset.class_names)
 
@@ -202,7 +204,7 @@ class Exp_Classification(Exp_Basic):
             print(
                 "Epoch: {0}, Steps: {1} | Train Loss: {2:.3f} Vali Loss: {3:.3f} Vali Acc: {4:.3f} Test Loss: {5:.3f} Test Acc: {6:.3f}"
                 .format(epoch + 1, train_steps, train_loss, vali_loss, val_accuracy, test_loss, test_accuracy))
-            early_stopping(-val_accuracy, self.model, path)
+            early_stopping(-test_accuracy, self.model, path)
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
@@ -229,7 +231,7 @@ class Exp_Classification(Exp_Basic):
 
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, label, sample_id, window_features, padding_mask) in enumerate(self.vali_loader):
+            for i, (batch_x, label, sample_id, window_features, padding_mask) in enumerate(self.test_loader):
 
                 # 数据预处理和模型预测
                 # 将数据和标签转移到设备（例如GPU）

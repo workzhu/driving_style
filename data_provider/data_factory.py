@@ -7,7 +7,7 @@ from data_provider.uea import subsample, interpolate_missing, Normalizer
 import copy
 from torch.utils.data import Dataset
 import torch
-import pandas as pd
+import numpy as np
 
 
 class Window:
@@ -33,7 +33,9 @@ class Window:
         features_name = ['x_acc_clean', 'y_acc_clean', 'z_acc_clean',
                          'x_mag', 'y_mag', 'z_mag',
                          'x_gra', 'y_gra', 'z_gra',
+                         'x_gyro', 'y_gyro', 'z_gyro',
                          'speed', 'bearing']
+
 
         # 遍历每一列并提取特征
         for feature in features_name:
@@ -42,7 +44,10 @@ class Window:
             mean_value = self.window_df[feature].mean()
             var_value = self.window_df[feature].var()
             skew_value = self.window_df[feature].skew()
-            kurt_value = self.window_df[feature].kurt()
+            if len(self.window_df[feature].dropna()) >= 4 and self.window_df[feature].var() != 0:
+                kurt_value = self.window_df[feature].kurt()
+            else:
+                kurt_value = 0  # 或其他合适的默认值
             std_dev_value = self.window_df[feature].std()
 
             features[f'max_{feature}'] = max_value
@@ -52,7 +57,6 @@ class Window:
             features[f'skew_{feature}'] = skew_value
             features[f'kurt_{feature}'] = kurt_value
             features[f'std_dev_{feature}'] = std_dev_value
-
         return features
 
 
@@ -78,6 +82,27 @@ class WindowedDataset(Dataset):
         print('窗口步长：', self.step_size)
         print('窗口数量：', len(self.windows))
 
+    def is_maneuver(self, window_df, length):
+        """
+            计算 DataFrame 中陀螺仪数据的 F1 值，并判断是否小于阈值。
+
+            参数:
+            df (pd.DataFrame): 包含陀螺仪数据的 DataFrame，应有 'g_x', 'g_y', 'g_z' 列。
+            threshold (float): 与 F1 值进行比较的阈值。
+
+            返回:
+            bool: 如果 F1 值小于等于阈值，则为 True，否则为 False。
+        """
+        F1 = []
+        for i in range(length):
+            F1.append(np.sqrt(window_df['x_gyro'].iloc[i] ** 2
+                              + window_df['y_gyro'].iloc[i] ** 2
+                              + window_df['z_gyro'].iloc[i] ** 2))
+        # 计算 F1 平均值
+        F1_avg = np.mean(F1)
+
+        return F1_avg >= 0.1
+
     def create_sliding_windows(self, window_size, step_size):
         """
         在 DataFrame 的每个样本内创建滑动窗口。
@@ -98,11 +123,13 @@ class WindowedDataset(Dataset):
             # 处理样本长度小于窗口长度的情况
             if len(sample_df) < window_size:
                 length = len(sample_df)
-                window = Window(sample_df)
-                window.label = torch.from_numpy(self.dataset.labels_df.loc[sample_index].values)
-                window.sample_id = sample_index
-                windows.append(window)
-                window.real_length = length
+
+                if self.is_maneuver(sample_df, length) & length * 0.02 >= 1:
+                    window = Window(sample_df)
+                    window.label = torch.from_numpy(self.dataset.labels_df.loc[sample_index].values)
+                    window.sample_id = sample_index
+                    windows.append(window)
+                    window.real_length = length
 
                 continue
 
@@ -117,12 +144,12 @@ class WindowedDataset(Dataset):
                     # 处理样本长度不是步长整数倍的情况
                     length = len(sample_df.iloc[start:])
 
-                window = Window(window_df)
-                window.label = torch.from_numpy(self.dataset.labels_df.loc[sample_index].values)
-                window.sample_id = sample_index
-                window.real_length = length
-                windows.append(window)
-
+                if self.is_maneuver(window_df, length):
+                    window = Window(window_df)
+                    window.label = torch.from_numpy(self.dataset.labels_df.loc[sample_index].values)
+                    window.sample_id = sample_index
+                    window.real_length = length
+                    windows.append(window)
         return windows
 
 

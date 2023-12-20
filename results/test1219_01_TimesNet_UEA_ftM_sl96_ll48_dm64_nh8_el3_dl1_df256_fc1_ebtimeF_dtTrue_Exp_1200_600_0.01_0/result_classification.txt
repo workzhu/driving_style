@@ -1,0 +1,9 @@
+test1219_01_TimesNet_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.01_0  
+行程ID: 1, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 3, 行程标签: 激进, Voted Prediction: 正常, 错误
+行程ID: 5, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 18, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 30, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 34, 行程标签: 激进, Voted Prediction: 正常, 错误
+accuracy:0.6666666666666666
+

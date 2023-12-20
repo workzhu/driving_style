@@ -68,6 +68,9 @@ class MyDataLoader(Dataset):
 
                     gravity = self.read_with_template(os.path.join(trip_dir, 'Gravity.csv'), ['time', 'x', 'y', 'z'])
 
+                    gyroscope = self.read_with_template(os.path.join(trip_dir, 'Gyroscope.csv'),
+                                                        ['time', 'x', 'y', 'z'])
+
                     magnetometer = self.read_with_template(os.path.join(trip_dir, 'Magnetometer.csv'),
                                                            ['time', 'x', 'y', 'z'])
 
@@ -75,7 +78,7 @@ class MyDataLoader(Dataset):
                                                   ['time', 'bearing', 'bearingAccuracy', 'speed',
                                                    'speedAccuracy', 'latitude', 'longitude'])
 
-                    temp_data = self.merge_data(accelerometer, gravity, magnetometer, gps, orientation)
+                    temp_data = self.merge_data(accelerometer, gravity, gyroscope, magnetometer, gps, orientation)
 
                     # 重定向
                     self.reorientation(temp_data)
@@ -129,9 +132,14 @@ class MyDataLoader(Dataset):
         # 最后将这些DataFrame合并成一个大的DataFrame
         data = pd.concat([df.set_index([len(df) * [idx]]) for idx, df in enumerate(data_list)])
 
-        features_name = ['roll', 'pitch', 'yaw', 'z_gra', 'y_gra', 'x_gra', 'z_mag', 'y_mag', 'x_mag',
-                         'bearingAccuracy', 'speedAccuracy', 'speed', 'bearing', 'longitude',
-                         'latitude', 'x_acc_clean', 'y_acc_clean', 'z_acc_clean']
+        features_name = [
+            'roll', 'pitch', 'yaw',
+            'z_gra', 'y_gra', 'x_gra',
+            'z_mag', 'y_mag', 'x_mag',
+            'bearingAccuracy', 'speedAccuracy', 'speed', 'bearing', 'longitude', 'latitude',
+             'x_acc_clean', 'y_acc_clean', 'z_acc_clean',
+             'x_gyro', 'y_gyro', 'z_gyro'
+        ]
 
         data = data[features_name]
 
@@ -228,13 +236,12 @@ class MyDataLoader(Dataset):
         # 使用train_test_split随机划分数据集
         train_set, test_set = train_test_split(groups, test_size=1 - ratio, random_state=20)
 
-        # validate_set, test_set = train_test_split(test_set, test_size=0.3, random_state=50)
+        validate_set, test_set = train_test_split(test_set, test_size=0.3, random_state=50)
 
         train_set = pd.concat([group[1] for group in train_set], axis=0)
         test_set = pd.concat([group[1] for group in test_set], axis=0)
 
-        # validate_set = pd.concat([group[1] for group in validate_set], axis=0)
-        validate_set = test_set
+        validate_set = pd.concat([group[1] for group in validate_set], axis=0)
 
         return train_set, test_set, validate_set
 
@@ -346,11 +353,13 @@ class MyDataLoader(Dataset):
 
         # 相同采样率10Hz数据融合
 
-    def merge_data(self, accelerometer, gravity, magnetometer, gps, orientation):
+    def merge_data(self, accelerometer, gravity, gyroscope, magnetometer, gps, orientation):
 
         accelerometer.rename(columns={'x': 'x_acc', 'y': 'y_acc', 'z': 'z_acc'}, inplace=True)
 
         gravity.rename(columns={'x': 'x_gra', 'y': 'y_gra', 'z': 'z_gra'}, inplace=True)
+
+        gyroscope.rename(columns={'x': 'x_gyro', 'y': 'y_gyro', 'z': 'z_gyro'}, inplace=True)
 
         magnetometer.rename(columns={'x': 'x_mag', 'y': 'y_mag', 'z': 'z_mag'}, inplace=True)
 
@@ -363,6 +372,11 @@ class MyDataLoader(Dataset):
                                          direction="nearest")
 
         print('merge gravity and mergeData,mergeData shape: ', merge_data_10_hz.shape)
+
+        merge_data_10_hz = pd.merge_asof(merge_data_10_hz, gyroscope, on='time', suffixes=('_gyro', '_merge'),
+                                         direction="nearest")
+
+        print('merge gyroscope and mergeData,mergeData shape: ', merge_data_10_hz.shape)
 
         merge_data_10_hz = pd.merge_asof(merge_data_10_hz, magnetometer, on='time', suffixes=('_mag', '_merge'),
                                          direction="nearest")
