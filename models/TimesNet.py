@@ -176,31 +176,8 @@ class Model(nn.Module):
         output = self.projection(combined_features)  # (batch_size, num_classes)
         return output
 
-    def find_nan_indices(self, tensor):
-        # 返回一个布尔张量，其中 NaN 为 True
-        nan_mask = torch.isnan(tensor)
-
-        # 使用 torch.where 来找到 NaN 的索引
-        nan_indices = torch.where(nan_mask)
-
-        # 返回 NaN 的索引
-        return nan_indices
-
-
     def forward(self, x_enc, window_featrues_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
         # 假设x_enc, window_featrues_enc, x_mark_enc是PyTorch张量
-
-        # 检查输入是否有nan
-        if torch.isnan(x_enc).any():
-            print("NaN detected in x_enc")
-        if torch.isnan(window_featrues_enc).any():
-            print("NaN detected in window_features_enc")
-
-            # 假设 window_features_enc 是你的模型中的一个张量
-            nan_indices = self.find_nan_indices(window_featrues_enc)
-            print("NaN indices in window_features_enc:", nan_indices)
-        if torch.isnan(x_mark_enc).any():
-            print("NaN detected in x_mark_enc")
 
         # classification(batch_x, padding_mask)
         dec_out = self.classification(x_enc, window_featrues_enc, x_mark_enc)

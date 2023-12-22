@@ -236,7 +236,7 @@ class MyDataLoader(Dataset):
         # 使用train_test_split随机划分数据集
         train_set, test_set = train_test_split(groups, test_size=1 - ratio, random_state=20)
 
-        validate_set, test_set = train_test_split(test_set, test_size=0.3, random_state=50)
+        validate_set, test_set = train_test_split(test_set, test_size=0.7, random_state=50)
 
         train_set = pd.concat([group[1] for group in train_set], axis=0)
         test_set = pd.concat([group[1] for group in test_set], axis=0)

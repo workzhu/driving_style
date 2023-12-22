@@ -1,6 +1,6 @@
 import os
 import torch
-from models import Autoformer, Transformer, TimesNet, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS, Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa
+from models import Autoformer, Transformer, TimesNet, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS, Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, LSTM
 
 
 # exp基类
@@ -28,6 +28,7 @@ class Exp_Basic(object):
             'FiLM': FiLM,
             'iTransformer': iTransformer,
             'Koopa': Koopa,
+            'LSTM': LSTM,
         }
         
         self.train_data, self.train_loader, self.test_data, self.test_loader, self.vali_data, self.vali_loader = self._get_data()
