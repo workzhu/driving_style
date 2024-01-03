@@ -1,6 +1,6 @@
 import os
 import torch
-from models import Autoformer, Transformer, TimesNet, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS, Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, LSTM
+from models import Autoformer, Transformer, TimesNet, TimesNetMod, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS, Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, LSTM
 
 
 # exp基类

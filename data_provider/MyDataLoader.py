@@ -93,8 +93,6 @@ class MyDataLoader(Dataset):
 
                     # self.acc_clean_figure(temp_data)
 
-
-                 # 生成均匀时间索引
                 start_time = pd.to_datetime(temp_data['time'].min())
                 end_time = pd.to_datetime(temp_data['time'].max())
 

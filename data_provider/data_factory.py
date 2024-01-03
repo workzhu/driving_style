@@ -124,7 +124,7 @@ class WindowedDataset(Dataset):
             if len(sample_df) < window_size:
                 length = len(sample_df)
 
-                if self.is_maneuver(sample_df, length) & length * 0.02 >= 1:
+                if self.is_maneuver(sample_df, length) and (length * 0.02 >= 1):
                     window = Window(sample_df)
                     window.label = torch.from_numpy(self.dataset.labels_df.loc[sample_index].values)
                     window.sample_id = sample_index

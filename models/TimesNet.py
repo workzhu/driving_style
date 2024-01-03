@@ -17,35 +17,14 @@ def FFT_for_Period(x, k=2):
     period = x.shape[1] // top_list
     return period, abs(xf).mean(-1)[:, top_list]
 
-class SampleAttention(nn.Module):
-    def __init__(self, input_dim, num_windows):
-        super(SampleAttention, self).__init__()
-        self.attention_weight = nn.Linear(input_dim, 1)
-        self.num_windows = num_windows
-
-    def forward(self, x):
-        # x: (batch_size, num_windows, input_dim)
-        attention_scores = self.attention_weight(x)  # (batch_size, num_windows, 1)
-        attention_scores = F.softmax(attention_scores, dim=1)
-
-        weighted_features = torch.sum(x * attention_scores, dim=1)  # (batch_size, input_dim)
-        return weighted_features
-
 
 class TimesBlock(nn.Module):
     def __init__(self, configs):
         super(TimesBlock, self).__init__()
-
-        # 时序长度
         self.seq_len = configs.seq_len
-
-        # 预测长度 0
         self.pred_len = configs.pred_len
-
-        # top_k ？超参数，傅里叶变换取前k个频率分量的强度最大的频率
         self.k = configs.top_k
-
-        # parameter-efficient design 卷积层
+        # parameter-efficient design
         self.conv = nn.Sequential(
             Inception_Block_V1(configs.d_model, configs.d_ff,
                                num_kernels=configs.num_kernels),
@@ -54,23 +33,13 @@ class TimesBlock(nn.Module):
                                num_kernels=configs.num_kernels)
         )
 
-    # 定义前向传播函数
     def forward(self, x):
-        # 获取输入数据的尺寸：批量大小、时间步长和特征维度
         B, T, N = x.size()
-
-        # 使用傅里叶变换提取前k个重要的频率分量
         period_list, period_weight = FFT_for_Period(x, self.k)
 
-        # 初始化结果列表
         res = []
-
-        # 遍历每个频率分量
         for i in range(self.k):
-
-            # 获取当前频率分量的周期
             period = period_list[i]
-
             # padding
             if (self.seq_len + self.pred_len) % period != 0:
                 length = (
@@ -80,9 +49,7 @@ class TimesBlock(nn.Module):
             else:
                 length = (self.seq_len + self.pred_len)
                 out = x
-
             # reshape
-            # 重新整形并应用卷积
             out = out.reshape(B, length // period, period,
                               N).permute(0, 3, 1, 2).contiguous()
             # 2D conv: from 1d Variation to 2d Variation
@@ -109,77 +76,140 @@ class Model(nn.Module):
     def __init__(self, configs):
         super(Model, self).__init__()
         self.configs = configs
-
-        # 最长时序长度(即每个窗口的长度)
+        self.task_name = configs.task_name
         self.seq_len = configs.seq_len
-
-        # 用于预测的标签长度
         self.label_len = configs.label_len
-
-        # 预测长度 = 0
         self.pred_len = configs.pred_len
-
-        self.window_feature_dim = configs.window_feature_dim
-
-        # 模型由多个TimesBlock组成
         self.model = nn.ModuleList([TimesBlock(configs)
                                     for _ in range(configs.e_layers)])
-
-        # 这是一个嵌入层，用于将原始数据转换为更适合神经网络处理的形式。
         self.enc_embedding = DataEmbedding(configs.enc_in, configs.d_model, configs.embed, configs.freq,
                                            configs.dropout)
         self.layer = configs.e_layers
         self.layer_norm = nn.LayerNorm(configs.d_model)
+        if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
+            self.predict_linear = nn.Linear(
+                self.seq_len, self.pred_len + self.seq_len)
+            self.projection = nn.Linear(
+                configs.d_model, configs.c_out, bias=True)
+        if self.task_name == 'imputation' or self.task_name == 'anomaly_detection':
+            self.projection = nn.Linear(
+                configs.d_model, configs.c_out, bias=True)
+        if self.task_name == 'classification':
+            self.act = F.gelu
+            self.dropout = nn.Dropout(configs.dropout)
+            self.projection = nn.Linear(
+                configs.d_model * configs.seq_len, configs.num_class)
 
-        self.act = F.gelu
-        self.dropout = nn.Dropout(configs.dropout)
-
-        self.window_feature_processor = nn.Linear(self.window_feature_dim, 128)
-
-        self.projection = nn.Linear(
-            configs.d_model * configs.seq_len + 128, configs.num_class)
-
-    def classification(self, x_enc, window_features_enc, x_mark_enc):
+    def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
+        # Normalization from Non-stationary Transformer
+        means = x_enc.mean(1, keepdim=True).detach()
+        x_enc = x_enc - means
+        stdev = torch.sqrt(
+            torch.var(x_enc, dim=1, keepdim=True, unbiased=False) + 1e-5)
+        x_enc /= stdev
 
         # embedding
-        # 执行enc_embedding的forward函数
-        enc_out = self.enc_embedding(x_enc, None)  # [B,T,C]
-
+        enc_out = self.enc_embedding(x_enc, x_mark_enc)  # [B,T,C]
+        enc_out = self.predict_linear(enc_out.permute(0, 2, 1)).permute(
+            0, 2, 1)  # align temporal dimension
         # TimesNet
         for i in range(self.layer):
-            # 执行TimesBlock的forward函数
+            enc_out = self.layer_norm(self.model[i](enc_out))
+        # porject back
+        dec_out = self.projection(enc_out)
+
+        # De-Normalization from Non-stationary Transformer
+        dec_out = dec_out * \
+                  (stdev[:, 0, :].unsqueeze(1).repeat(
+                      1, self.pred_len + self.seq_len, 1))
+        dec_out = dec_out + \
+                  (means[:, 0, :].unsqueeze(1).repeat(
+                      1, self.pred_len + self.seq_len, 1))
+        return dec_out
+
+    def imputation(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask):
+        # Normalization from Non-stationary Transformer
+        means = torch.sum(x_enc, dim=1) / torch.sum(mask == 1, dim=1)
+        means = means.unsqueeze(1).detach()
+        x_enc = x_enc - means
+        x_enc = x_enc.masked_fill(mask == 0, 0)
+        stdev = torch.sqrt(torch.sum(x_enc * x_enc, dim=1) /
+                           torch.sum(mask == 1, dim=1) + 1e-5)
+        stdev = stdev.unsqueeze(1).detach()
+        x_enc /= stdev
+
+        # embedding
+        enc_out = self.enc_embedding(x_enc, x_mark_enc)  # [B,T,C]
+        # TimesNet
+        for i in range(self.layer):
+            enc_out = self.layer_norm(self.model[i](enc_out))
+        # porject back
+        dec_out = self.projection(enc_out)
+
+        # De-Normalization from Non-stationary Transformer
+        dec_out = dec_out * \
+                  (stdev[:, 0, :].unsqueeze(1).repeat(
+                      1, self.pred_len + self.seq_len, 1))
+        dec_out = dec_out + \
+                  (means[:, 0, :].unsqueeze(1).repeat(
+                      1, self.pred_len + self.seq_len, 1))
+        return dec_out
+
+    def anomaly_detection(self, x_enc):
+        # Normalization from Non-stationary Transformer
+        means = x_enc.mean(1, keepdim=True).detach()
+        x_enc = x_enc - means
+        stdev = torch.sqrt(
+            torch.var(x_enc, dim=1, keepdim=True, unbiased=False) + 1e-5)
+        x_enc /= stdev
+
+        # embedding
+        enc_out = self.enc_embedding(x_enc, None)  # [B,T,C]
+        # TimesNet
+        for i in range(self.layer):
+            enc_out = self.layer_norm(self.model[i](enc_out))
+        # porject back
+        dec_out = self.projection(enc_out)
+
+        # De-Normalization from Non-stationary Transformer
+        dec_out = dec_out * \
+                  (stdev[:, 0, :].unsqueeze(1).repeat(
+                      1, self.pred_len + self.seq_len, 1))
+        dec_out = dec_out + \
+                  (means[:, 0, :].unsqueeze(1).repeat(
+                      1, self.pred_len + self.seq_len, 1))
+        return dec_out
+
+    def classification(self, x_enc, x_mark_enc):
+        # embedding
+        enc_out = self.enc_embedding(x_enc, None)  # [B,T,C]
+        # TimesNet
+        for i in range(self.layer):
             enc_out = self.layer_norm(self.model[i](enc_out))
 
         # Output
         # the output transformer encoder/decoder embeddings don't include non-linearity
-        # Output
-        # 处理最终的输出
-        # 首先应用激活函数
         output = self.act(enc_out)
-        # 然后应用dropout层
         output = self.dropout(output)
         # zero-out padding embeddings
-        # 零化填充部分的嵌入，以忽略无效数据
         output = output * x_mark_enc.unsqueeze(-1)
-
-        # 处理窗口特征
-        processed_window_features = self.window_feature_processor(window_features_enc)
-
-        # 重新整形输出，准备进行分类
         # (batch_size, seq_length * d_model)
         output = output.reshape(output.shape[0], -1)
-
-        # 将时间序列特征和处理后的窗口特征结合
-        combined_features = torch.cat([output, processed_window_features], dim=1)
-
-        # 通过全连接层进行分类
-        output = self.projection(combined_features)  # (batch_size, num_classes)
+        output = self.projection(output)  # (batch_size, num_classes)
         return output
 
-    def forward(self, x_enc, window_featrues_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
-        # 假设x_enc, window_featrues_enc, x_mark_enc是PyTorch张量
-
-        # classification(batch_x, padding_mask)
-        dec_out = self.classification(x_enc, window_featrues_enc, x_mark_enc)
-        return dec_out  # [B, N]
-
+    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
+        if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
+            dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
+            return dec_out[:, -self.pred_len:, :]  # [B, L, D]
+        if self.task_name == 'imputation':
+            dec_out = self.imputation(
+                x_enc, x_mark_enc, x_dec, x_mark_dec, mask)
+            return dec_out  # [B, L, D]
+        if self.task_name == 'anomaly_detection':
+            dec_out = self.anomaly_detection(x_enc)
+            return dec_out  # [B, L, D]
+        if self.task_name == 'classification':
+            dec_out = self.classification(x_enc, x_mark_enc)
+            return dec_out  # [B, N]
+        return None
