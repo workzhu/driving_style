@@ -11,6 +11,7 @@ class Exp_Basic(object):
         self.args = args
         self.device = self._acquire_device()
         self.model_dict = {
+            'TimesNetMod': TimesNetMod,
             'TimesNet': TimesNet,
             'Autoformer': Autoformer,
             'Transformer': Transformer,

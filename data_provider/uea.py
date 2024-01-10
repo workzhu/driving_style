@@ -78,6 +78,7 @@ def padding_mask(lengths, max_len=None):
     """
     batch_size = lengths.numel()
     max_len = max_len or lengths.max_val()  # trick works because of overloading of 'or' operator for non-boolean types
+
     return (torch.arange(0, max_len, device=lengths.device)
             .type_as(lengths)
             .repeat(batch_size, 1)

@@ -32,7 +32,7 @@ class Window:
 
         features_name = ['x_acc_clean', 'y_acc_clean', 'z_acc_clean',
                          'x_mag', 'y_mag', 'z_mag',
-                         'x_gra', 'y_gra', 'z_gra',
+                         'x_gra_clean', 'y_gra_clean', 'z_gra_clean',
                          'x_gyro', 'y_gyro', 'z_gyro',
                          'speed', 'bearing']
 

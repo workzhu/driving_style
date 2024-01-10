@@ -56,7 +56,14 @@ class Exp_Classification(Exp_Basic):
 
     def _select_criterion(self):
         # criterion = nn.MSELoss()
-        criterion = nn.CrossEntropyLoss()
+        # 假设你有一个二分类问题，其中类别 0 的样本数量是类别 1 的 10 倍
+        # 设置更高的权重给较少的类别（类别 1）
+        # 权重移到相同设备
+        weights = torch.tensor([1.0, 0.01])
+
+        # 创建带有惩罚权重的损失函数
+        criterion = nn.CrossEntropyLoss(weight=weights)
+
         return criterion
 
     def vali(self, vali_data, vali_loader, criterion):
@@ -73,7 +80,6 @@ class Exp_Classification(Exp_Basic):
             # 迭代验证数据
             for i, (batch_x, label, sample_id, window_features, padding_mask) in enumerate(vali_loader):
 
-
                 # 数据预处理和模型预测
                 # 将数据和标签转移到设备（例如GPU）
                 batch_x = batch_x.float().to(self.device)
@@ -82,7 +88,8 @@ class Exp_Classification(Exp_Basic):
                 window_features = window_features.float().to(self.device)
 
                 # 此处调用的是模型的forward()方法
-                outputs = self.model(batch_x, window_features, padding_mask, None, None)
+                # outputs = self.model(batch_x, window_features, padding_mask, None, None)
+                outputs = self.model(batch_x, padding_mask, None, None)
 
                 # 计算损失并收集预测
                 pred = outputs.detach().cpu()
@@ -91,7 +98,7 @@ class Exp_Classification(Exp_Basic):
                 # loss = criterion(pred, label.long().cpu())
 
                 prediction = torch.argmax(torch.nn.functional.softmax(outputs, dim=1), dim=1).cpu().numpy()
-                
+
                 total_loss.append(loss)
 
                 label = label.squeeze().cpu().numpy()
@@ -113,7 +120,6 @@ class Exp_Classification(Exp_Basic):
         self.model.train()
         return total_loss, accuracy
 
-
         '''
         preds = torch.cat(preds, 0)
         trues = torch.cat(trues, 0)
@@ -126,6 +132,7 @@ class Exp_Classification(Exp_Basic):
         self.model.train()
         return total_loss, accuracy
         '''
+
     # 训练
     def train(self, setting):
 
@@ -152,6 +159,10 @@ class Exp_Classification(Exp_Basic):
             iter_count = 0
             train_loss = []
 
+            sample_true_labels = {}  # 用于存储每个样本的真实标签
+
+            sample_preds = defaultdict(list)  # 用于存储每个样本的所有预测
+
             # 将模型设置为训练模式
             self.model.train()
             # 记录当前周期的开始时间
@@ -170,15 +181,24 @@ class Exp_Classification(Exp_Basic):
                 label = label.to(self.device)
                 window_features = window_features.float().to(self.device)
 
+                criterion = criterion.to(self.device)
+
                 # 通过模型获取预测输出
-                outputs = self.model(batch_x, window_features, padding_mask, None, None)
+                # outputs = self.model(batch_x, window_features, padding_mask, None, None)
+                outputs = self.model(batch_x, padding_mask, None, None)
 
                 # 计算损失并添加到损失列表
                 loss = criterion(outputs, label.long().squeeze(-1))
+
+                prediction = torch.argmax(torch.nn.functional.softmax(outputs, dim=1), dim=1).cpu().numpy()
+
                 train_loss.append(loss.item())
 
-                # 清空CUDA缓存，防止内存溢出
-                torch.cuda.empty_cache()
+                label = label.squeeze().cpu().numpy()
+                sample_id = list(sample_id)
+                for sid, p, true_label in zip(sample_id, prediction, label):
+                    sample_preds[sid].append(p)
+                    sample_true_labels[sid] = true_label  # 存储或更新每个样本的真实标签
 
                 # 每100次迭代打印一次进度
                 if (i + 1) % 100 == 0:
@@ -196,20 +216,28 @@ class Exp_Classification(Exp_Basic):
 
             # 打印当前周期的耗时和平均损失
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+
+            # 投票机制，并按照样本 ID 的排序得到最终预测
+            final_predictions = [Counter(sample_preds[sid]).most_common(1)[0][0] for sid in sorted(sample_true_labels)]
+
+            # 准确率计算
+            trues = [sample_true_labels[sid] for sid in sorted(sample_true_labels)]  # 按照 sample_id 排序的真实标签
+            train_accuracy = np.sum(np.array(final_predictions) == np.array(trues)) / len(trues)
             train_loss = np.average(train_loss)
 
-            vali_loss, val_accuracy = self.vali(self.vali_data, self.vali_loader, criterion)
-            test_loss, test_accuracy = self.vali(self.test_data, self.test_loader, criterion)
+            vali_loss, val_accuracy = self.vali(self.vali_data, self.vali_loader, criterion.to('cpu'))
+            test_loss, test_accuracy = self.vali(self.test_data, self.test_loader, criterion.to('cpu'))
 
             print(
-                "Epoch: {0}, Steps: {1} | Train Loss: {2:.3f} Vali Loss: {3:.3f} Vali Acc: {4:.3f} Test Loss: {5:.3f} Test Acc: {6:.3f}"
-                .format(epoch + 1, train_steps, train_loss, vali_loss, val_accuracy, test_loss, test_accuracy))
-            early_stopping(-test_accuracy, self.model, path)
+                "Epoch: {0}, Steps: {1} | Train Loss: {2:.3f} Train Acc: {3:.3f} Vali Loss: {4:.3f} Vali Acc: {5:.3f} Test Loss: {6:.3f} Test Acc: {7:.3f}"
+                .format(epoch + 1, train_steps, train_loss, train_accuracy, vali_loss, val_accuracy, test_loss,
+                        test_accuracy))
+            early_stopping(train_loss, self.model, path)
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
-           # if (epoch + 1) % 5 == 0:
-                # adjust_learning_rate(model_optim, epoch + 1, self.args)
+        # if (epoch + 1) % 5 == 0:
+        # adjust_learning_rate(model_optim, epoch + 1, self.args)
 
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
@@ -240,7 +268,8 @@ class Exp_Classification(Exp_Basic):
                 label = label.to(self.device)
                 window_features = window_features.float().to(self.device)
 
-                outputs = self.model(batch_x, window_features, padding_mask, None, None)
+                # outputs = self.model(batch_x, window_features, padding_mask, None, None)
+                outputs = self.model(batch_x, padding_mask, None, None)
 
                 prediction = torch.argmax(torch.nn.functional.softmax(outputs, dim=1), dim=1).cpu().numpy()
 
@@ -255,8 +284,6 @@ class Exp_Classification(Exp_Basic):
 
         # 投票机制，并按照样本 ID 的排序得到最终预测
         final_predictions = [Counter(sample_preds[sid]).most_common(1)[0][0] for sid in sorted(sample_true_labels)]
-
-
 
         # 准确率计算
         trues = [sample_true_labels[sid] for sid in sorted(sample_true_labels)]  # 按照 sample_id 排序的真实标签
@@ -276,8 +303,8 @@ class Exp_Classification(Exp_Basic):
             os.makedirs(folder_path)
 
         print('accuracy:{}'.format(accuracy))
-        file_name='result_classification.txt'
-        f = open(os.path.join(folder_path,file_name), 'a')
+        file_name = 'result_classification.txt'
+        f = open(os.path.join(folder_path, file_name), 'a')
         f.write(setting + "  \n")
         # 打印每个样本的信息
         for sid, vote_result in zip(sorted(sample_true_labels), final_predictions):

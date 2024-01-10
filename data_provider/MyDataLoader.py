@@ -78,6 +78,8 @@ class MyDataLoader(Dataset):
                                                   ['time', 'bearing', 'bearingAccuracy', 'speed',
                                                    'speedAccuracy', 'latitude', 'longitude'])
 
+                    gps['speed'] = gps['speed'] * 3.6  # 将速度从m/s转换为km/h
+
                     temp_data = self.merge_data(accelerometer, gravity, gyroscope, magnetometer, gps, orientation)
 
                     # 重定向
@@ -132,9 +134,11 @@ class MyDataLoader(Dataset):
 
         features_name = [
             'roll', 'pitch', 'yaw',
-            'z_gra', 'y_gra', 'x_gra',
+            'z_gra_clean', 'y_gra_clean', 'x_gra_clean',
             'z_mag', 'y_mag', 'x_mag',
-            'bearingAccuracy', 'speedAccuracy', 'speed', 'bearing', 'longitude', 'latitude',
+            # 'bearingAccuracy', 'speedAccuracy',
+            'speed', 'bearing',
+            # 'longitude', 'latitude',
              'x_acc_clean', 'y_acc_clean', 'z_acc_clean',
              'x_gyro', 'y_gyro', 'z_gyro'
         ]
@@ -234,15 +238,13 @@ class MyDataLoader(Dataset):
         # 使用train_test_split随机划分数据集
         train_set, test_set = train_test_split(groups, test_size=1 - ratio, random_state=20)
 
-        validate_set, test_set = train_test_split(test_set, test_size=0.7, random_state=50)
+        # validate_set, test_set = train_test_split(test_set, test_size=0.7, random_state=50)
 
         train_set = pd.concat([group[1] for group in train_set], axis=0)
         test_set = pd.concat([group[1] for group in test_set], axis=0)
 
-        validate_set = pd.concat([group[1] for group in validate_set], axis=0)
-
-
-
+        # validate_set = pd.concat([group[1] for group in validate_set], axis=0)
+        validate_set = test_set
         return train_set, test_set, validate_set
 
     """
@@ -288,19 +290,29 @@ class MyDataLoader(Dataset):
 
             acc_phone = np.matrix(row[['x_acc', 'y_acc', 'z_acc']].values).T
 
+            gra_phone = np.matrix(row[['x_gra', 'y_gra', 'z_gra']].values).T
+
             phone_quaternion = quaternion.quaternion(row['qw'], row['qx'], row['qy'], row['qz'])
 
             yaw_car = row['bearing'] % 360
 
             acc_car = self.phone_to_ENU_to_NED_to_car(acc_phone, phone_quaternion, yaw_car)
 
+            gra_car = self.phone_to_ENU_to_NED_to_car(gra_phone, phone_quaternion, yaw_car)
+
             acc_car = acc_car.tolist()
 
+            gra_car = gra_car.tolist()
+
             # 更新重定向后的数据
-            if len(acc_car) == 3:
+            if len(acc_car) == 3 and len(gra_car) == 3:
                 data.loc[index, 'x_acc'] = acc_car[0]
                 data.loc[index, 'y_acc'] = acc_car[1]
                 data.loc[index, 'z_acc'] = acc_car[2]
+
+                data.loc[index, 'x_gra'] = gra_car[0]
+                data.loc[index, 'y_gra'] = gra_car[1]
+                data.loc[index, 'z_gra'] = gra_car[2]
             else:
                 print(f"Unexpected shape for acc_car_array at index {index}")
 
@@ -311,6 +323,9 @@ class MyDataLoader(Dataset):
 
         # 从DataFrame中提取加速度数据
         acc_reo = data[['x_acc', 'y_acc', 'z_acc']].to_numpy()
+
+        # 从DataFrame中提取重力数据
+        gra_reo = data[['x_gra', 'y_gra', 'z_gra']].to_numpy()
 
         # 初始状态设为零向量 [ax, ay, az]
         initial_state_mean = np.zeros(3)
@@ -345,6 +360,13 @@ class MyDataLoader(Dataset):
 
         # 将过滤后的加速度数据添加到原始DataFrame中
         for i, col in enumerate(['x_acc_clean', 'y_acc_clean', 'z_acc_clean']):
+            data[col] = filtered_state_means[:, i]
+
+        # 应用卡尔曼滤波器到加速度数据
+        (filtered_state_means, filtered_state_covariances) = kf.filter(gra_reo)
+
+        # 将过滤后的加速度数据添加到原始DataFrame中
+        for i, col in enumerate(['x_gra_clean', 'y_gra_clean', 'z_gra_clean']):
             data[col] = filtered_state_means[:, i]
 
         print("卡尔曼滤波结束！")
