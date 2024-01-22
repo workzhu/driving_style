@@ -59,7 +59,7 @@ class Exp_Classification(Exp_Basic):
         # 假设你有一个二分类问题，其中类别 0 的样本数量是类别 1 的 10 倍
         # 设置更高的权重给较少的类别（类别 1）
         # 权重移到相同设备
-        weights = torch.tensor([1.0, 0.01])
+        weights = torch.tensor([1.0, 0.3])
 
         # 创建带有惩罚权重的损失函数
         criterion = nn.CrossEntropyLoss(weight=weights)

@@ -1,0 +1,1 @@
+python -u run.py --task_name classification --is_training 1 --root_path D:/实验数据/ --model_id test103 --model TimesNet  --data UEA  --e_layers 3 --batch_size 512  --d_model 64  --d_ff 256 --top_k 3 --num_kernels 1  --des 'Exp'  --itr 1 --learning_rate 0.001 --train_epochs 100  --patience 100 --window_size 1200 --step_size 600 --split_ratio 0.8 --split_random 10

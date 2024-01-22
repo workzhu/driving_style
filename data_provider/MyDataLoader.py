@@ -231,14 +231,14 @@ class MyDataLoader(Dataset):
         return data_uniform
 
 
-    def split_by_ratio(self, ratio=0.8):
+    def split_by_ratio(self, ratio, random_seed):
         # 把DataFrame转换为列表，每个元素是一个小的DataFrame
         groups = list(self.all_df.groupby(by=self.all_df.index))
 
         # 使用train_test_split随机划分数据集
-        train_set, test_set = train_test_split(groups, test_size=1 - ratio, random_state=20)
+        train_set, test_set = train_test_split(groups, test_size=1 - ratio, random_state=random_seed)
 
-        # validate_set, test_set = train_test_split(test_set, test_size=0.7, random_state=50)
+        # validate_set, test_set = train_test_split(test_set, test_size=0.7, random_state)
 
         train_set = pd.concat([group[1] for group in train_set], axis=0)
         test_set = pd.concat([group[1] for group in test_set], axis=0)

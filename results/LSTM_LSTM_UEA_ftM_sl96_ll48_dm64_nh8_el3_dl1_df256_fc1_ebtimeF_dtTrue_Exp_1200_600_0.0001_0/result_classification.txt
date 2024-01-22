@@ -1,0 +1,11 @@
+LSTM_LSTM_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.0001_0  
+行程ID: 4, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 6, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 11, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 17, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 19, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 26, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 31, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 35, 行程标签: 正常, Voted Prediction: 正常, 正确
+accuracy:0.5
+

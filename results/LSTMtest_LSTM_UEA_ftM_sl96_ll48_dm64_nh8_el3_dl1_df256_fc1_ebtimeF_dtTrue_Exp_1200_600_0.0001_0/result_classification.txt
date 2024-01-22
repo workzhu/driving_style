@@ -1,0 +1,110 @@
+LSTMtest_LSTM_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.0001_0  
+行程ID: 1, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 4, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 10, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 12, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 13, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 23, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 24, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 32, 行程标签: 激进, Voted Prediction: 激进, 正确
+accuracy:0.5
+
+LSTMtest_LSTM_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.0001_0  
+行程ID: 1, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 4, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 10, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 12, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 13, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 23, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 24, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 32, 行程标签: 激进, Voted Prediction: 正常, 错误
+accuracy:0.625
+
+LSTMtest_LSTM_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.0001_0  
+行程ID: 5, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 8, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 10, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 15, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 25, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 27, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 29, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 31, 行程标签: 正常, Voted Prediction: 激进, 错误
+accuracy:0.5
+
+LSTMtest_LSTM_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.0001_0  
+行程ID: 5, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 8, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 10, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 15, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 25, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 27, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 29, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 31, 行程标签: 正常, Voted Prediction: 正常, 正确
+accuracy:0.75
+
+LSTMtest_LSTM_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.0001_0  
+行程ID: 5, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 8, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 10, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 15, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 25, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 27, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 29, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 31, 行程标签: 正常, Voted Prediction: 正常, 正确
+accuracy:0.75
+
+LSTMtest_LSTM_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.0001_0  
+行程ID: 2, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 3, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 5, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 7, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 12, 行程标签: 激进, Voted Prediction: 正常, 错误
+行程ID: 24, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 32, 行程标签: 激进, Voted Prediction: 正常, 错误
+行程ID: 33, 行程标签: 激进, Voted Prediction: 正常, 错误
+accuracy:0.5
+
+LSTMtest_LSTM_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.0001_0  
+行程ID: 5, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 8, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 10, 行程标签: 激进, Voted Prediction: 正常, 错误
+行程ID: 15, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 25, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 27, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 29, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 31, 行程标签: 正常, Voted Prediction: 正常, 正确
+accuracy:0.875
+
+LSTMtest_LSTM_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.0001_0  
+行程ID: 2, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 4, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 5, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 16, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 22, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 24, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 26, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 35, 行程标签: 正常, Voted Prediction: 正常, 正确
+accuracy:0.875
+
+LSTMtest_LSTM_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.0001_0  
+行程ID: 1, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 8, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 12, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 16, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 21, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 24, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 26, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 28, 行程标签: 正常, Voted Prediction: 正常, 正确
+accuracy:0.625
+
+LSTMtest_LSTM_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_0.0001_0  
+行程ID: 7, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 9, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 11, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 14, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 19, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 20, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 26, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 28, 行程标签: 正常, Voted Prediction: 正常, 正确
+accuracy:0.625
+

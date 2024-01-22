@@ -1,0 +1,11 @@
+test103_TimesNet_UEA_ftM_sl96_ll48_dm64_nh8_el3_dl1_df256_fc1_ebtimeF_dtTrue_Exp_1200_600_1e-05_0  
+行程ID: 2, 行程标签: 激进, Voted Prediction: 正常, 错误
+行程ID: 3, 行程标签: 激进, Voted Prediction: 激进, 正确
+行程ID: 5, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 7, 行程标签: 正常, Voted Prediction: 激进, 错误
+行程ID: 12, 行程标签: 激进, Voted Prediction: 正常, 错误
+行程ID: 24, 行程标签: 正常, Voted Prediction: 正常, 正确
+行程ID: 32, 行程标签: 激进, Voted Prediction: 正常, 错误
+行程ID: 33, 行程标签: 激进, Voted Prediction: 正常, 错误
+accuracy:0.375
+

@@ -204,7 +204,7 @@ def data_provider(args):
 
     )
 
-    train_df, test_df, vali_df = data_set.split_by_ratio(ratio=0.8)
+    train_df, test_df, vali_df = data_set.split_by_ratio(args.split_ratio, args.split_random)
 
     train_set = make_dataset(data_set, train_df, '训练集行程ID：', window_size, step_size)
     test_set = make_dataset(data_set, test_df, '测试集行程ID：', window_size, step_size)
