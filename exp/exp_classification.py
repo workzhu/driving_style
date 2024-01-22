@@ -265,13 +265,17 @@ class Exp_Classification(Exp_Basic):
 
         f.write(setting + "  \n")
         f.write("train_loss:" + "  \n")
-        f.write(train_losses + "  \n")
+        f.write(train_losses)
+        f.write('\n')
         f.write("val_loss:" + "  \n")
-        f.write(val_losses + "  \n")
+        f.write(val_losses)
+        f.write('\n')
         f.write("train_acc:" + "  \n")
-        f.write(train_acces + "  \n")
+        f.write(train_acces)
+        f.write('\n')
         f.write("val_acc:" + "  \n")
-        f.write(val_losses + "  \n")
+        f.write(val_acces)
+        f.write('\n')
 
         f.close()
         return self.model
