@@ -238,7 +238,7 @@ class Exp_Classification(Exp_Basic):
 
             train_acces.append(train_accuracy)
 
-            val_acces.append(val_acces)
+            val_acces.append(val_accuracy)
 
             print(
                 "Epoch: {0}, Steps: {1} | Train Loss: {2:.3f} Train Acc: {3:.3f} Vali Loss: {4:.3f} Vali Acc: {5:.3f} Test Loss: {6:.3f} Test Acc: {7:.3f}"
@@ -259,25 +259,20 @@ class Exp_Classification(Exp_Basic):
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
-        file_name = 'loss.txt'
+        file_name = folder_path + 'loss_and_accuracy.csv'
 
-        f = open(os.path.join(folder_path, file_name), 'a')
+        # 创建DataFrame
+        df = pd.DataFrame({
+            'Epoch': range(1, self.args.train_epochs + 1),
+            'Train Loss': train_losses,
+            'Validation Loss': val_losses,
+            'Train Accuracy': train_acces,
+            'Validation Accuracy': val_acces
+        })
 
-        f.write(setting + "  \n")
-        f.write("train_loss:" + "  \n")
-        f.write(str(train_losses))
-        f.write('\n')
-        f.write("val_loss:" + "  \n")
-        f.write(str(val_losses))
-        f.write('\n')
-        f.write("train_acc:" + "  \n")
-        f.write(str(train_acces))
-        f.write('\n')
-        f.write("val_acc:" + "  \n")
-        f.write(str(val_acces))
-        f.write('\n')
+        # 将DataFrame保存为CSV
+        df.to_csv(file_name, index=False)
 
-        f.close()
         return self.model
 
     def test(self, setting, test=0):
