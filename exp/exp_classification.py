@@ -267,7 +267,7 @@ class Exp_Classification(Exp_Basic):
 
         # 创建DataFrame
         df = pd.DataFrame({
-            'Epoch': range(1, self.args.train_epochs + 1),
+            'Epoch': range(1, iter_count),
             'Train Loss': train_losses,
             'Validation Loss': val_losses,
             'Train Accuracy': train_acces,
