@@ -154,15 +154,16 @@ class Exp_Classification(Exp_Basic):
         # 选择损失函数
         criterion = self._select_criterion()
 
+        train_losses = []
+        val_losses = []
+        train_acces = []
+        val_acces = []
+
         # 对于每一个训练周期
         for epoch in range(self.args.train_epochs):
             # 初始化迭代计数和训练损失列表
             iter_count = 0
             train_loss = []
-            train_losses = []
-            val_losses = []
-            train_acces = []
-            val_acces = []
 
             sample_true_labels = {}  # 用于存储每个样本的真实标签
 
@@ -230,12 +231,12 @@ class Exp_Classification(Exp_Basic):
             train_accuracy = np.sum(np.array(final_predictions) == np.array(trues)) / len(trues)
             train_loss = np.average(train_loss)
 
-            vali_loss, val_accuracy = self.vali(self.vali_data, self.vali_loader, criterion.to('cpu'))
+            val_loss, val_accuracy = self.vali(self.vali_data, self.vali_loader, criterion.to('cpu'))
             test_loss, test_accuracy = self.vali(self.test_data, self.test_loader, criterion.to('cpu'))
 
             train_losses.append(train_loss)
 
-            val_losses.append(vali_loss)
+            val_losses.append(val_loss)
 
             train_acces.append(train_accuracy)
 
@@ -243,7 +244,7 @@ class Exp_Classification(Exp_Basic):
 
             print(
                 "Epoch: {0}, Steps: {1} | Train Loss: {2:.3f} Train Acc: {3:.3f} Vali Loss: {4:.3f} Vali Acc: {5:.3f} Test Loss: {6:.3f} Test Acc: {7:.3f}"
-                .format(epoch + 1, train_steps, train_loss, train_accuracy, vali_loss, val_accuracy, test_loss,
+                .format(epoch + 1, train_steps, train_loss, train_accuracy, val_loss, val_accuracy, test_loss,
                         test_accuracy))
             early_stopping(train_loss, self.model, path)
             if early_stopping.early_stop:
@@ -261,6 +262,8 @@ class Exp_Classification(Exp_Basic):
             os.makedirs(folder_path)
 
         file_name = folder_path + 'loss_and_accuracy.csv'
+
+        print(len(train_losses), len(val_losses), len(train_acces), len(val_acces))
 
         # 创建DataFrame
         df = pd.DataFrame({
