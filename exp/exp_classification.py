@@ -162,6 +162,9 @@ class Exp_Classification(Exp_Basic):
 
         # 对于每一个训练周期
         for epoch in range(self.args.train_epochs):
+            # 训练周期计数加1
+            epoch_count += 1
+
             # 初始化迭代计数和训练损失列表
             iter_count = 0
             train_loss = []
