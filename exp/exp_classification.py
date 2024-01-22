@@ -158,6 +158,10 @@ class Exp_Classification(Exp_Basic):
             # 初始化迭代计数和训练损失列表
             iter_count = 0
             train_loss = []
+            train_losses = []
+            val_losses = []
+            train_acces = []
+            val_acces = []
 
             sample_true_labels = {}  # 用于存储每个样本的真实标签
 
@@ -228,6 +232,14 @@ class Exp_Classification(Exp_Basic):
             vali_loss, val_accuracy = self.vali(self.vali_data, self.vali_loader, criterion.to('cpu'))
             test_loss, test_accuracy = self.vali(self.test_data, self.test_loader, criterion.to('cpu'))
 
+            train_losses.append(train_loss)
+
+            val_losses.append(vali_loss)
+
+            train_acces.append(train_accuracy)
+
+            val_acces.append(val_acces)
+
             print(
                 "Epoch: {0}, Steps: {1} | Train Loss: {2:.3f} Train Acc: {3:.3f} Vali Loss: {4:.3f} Vali Acc: {5:.3f} Test Loss: {6:.3f} Test Acc: {7:.3f}"
                 .format(epoch + 1, train_steps, train_loss, train_accuracy, vali_loss, val_accuracy, test_loss,
@@ -242,6 +254,26 @@ class Exp_Classification(Exp_Basic):
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
 
+        # result save
+        folder_path = './results/' + setting + '/'
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+
+        file_name = 'loss.txt'
+
+        f = open(os.path.join(folder_path, file_name), 'a')
+
+        f.write(setting + "  \n")
+        f.write("train_loss:" + "  \n")
+        f.write(train_losses + "  \n")
+        f.write("val_loss:" + "  \n")
+        f.write(val_losses + "  \n")
+        f.write("train_acc:" + "  \n")
+        f.write(train_acces + "  \n")
+        f.write("val_acc:" + "  \n")
+        f.write(val_losses + "  \n")
+
+        f.close()
         return self.model
 
     def test(self, setting, test=0):
