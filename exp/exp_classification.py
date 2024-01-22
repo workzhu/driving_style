@@ -154,6 +154,7 @@ class Exp_Classification(Exp_Basic):
         # 选择损失函数
         criterion = self._select_criterion()
 
+        epoch_count = 0
         train_losses = []
         val_losses = []
         train_acces = []
@@ -263,11 +264,9 @@ class Exp_Classification(Exp_Basic):
 
         file_name = folder_path + 'loss_and_accuracy.csv'
 
-        print(len(train_losses), len(val_losses), len(train_acces), len(val_acces))
-
         # 创建DataFrame
         df = pd.DataFrame({
-            'Epoch': range(1, iter_count + 1),
+            'Epoch': range(1, epoch_count + 1),
             'Train Loss': train_losses,
             'Validation Loss': val_losses,
             'Train Accuracy': train_acces,
