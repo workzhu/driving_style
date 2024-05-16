@@ -1,15 +1,22 @@
+from matplotlib import pyplot as plt
+from torch.nn.utils import clip_grad_norm_
+
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
-from utils.tools import EarlyStopping, adjust_learning_rate, cal_accuracy
+from utils.tools import EarlyStopping, adjust_learning_rate
 import torch
 import torch.nn as nn
 from torch import optim
 import os
 import time
 import warnings
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 import pandas as pd
+import seaborn as sns
 from collections import defaultdict, Counter
+import csv
 
 warnings.filterwarnings('ignore')
 
@@ -28,15 +35,12 @@ class Exp_Classification(Exp_Basic):
         self.args.pred_len = 0
 
         # 获取特征维度
-        self.args.enc_in = self.train_data.dataset.feature_df.shape[1]
-
-        # 获取窗口特征维度
-        self.args.window_feature_dim = len(self.train_data.windows[0].window_features)
-
-        print("window_feature_dim", self.args.window_feature_dim)
+        self.args.enc_in = self.dataset.enc_in
 
         # 获取标签数
-        self.args.num_class = len(self.train_data.dataset.class_names)
+        self.args.num_class = self.dataset.num_class
+
+        self.total_samples = sum(self.dataset.label_counts.values())
 
         # model init
         model = self.model_dict[self.args.model].Model(self.args).float()
@@ -47,312 +51,297 @@ class Exp_Classification(Exp_Basic):
         return model
 
     def _get_data(self):
-        train_data, train_loader, test_data, test_loader, vali_data, vali_loader = data_provider(self.args)
-
-        return train_data, train_loader, test_data, test_loader, vali_data, vali_loader
+        dataset, train_dataset, valid_dataset, test_dataset, train_loader, valid_loader, test_loader = \
+            data_provider(self.args)
+        return dataset, train_dataset, valid_dataset, test_dataset, train_loader, valid_loader, test_loader
 
     def _select_optimizer(self):
-        model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+        model_optim = optim.RAdam(self.model.parameters(), lr=self.args.learning_rate)
+        # model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+        # model_optim = optim.SGD(self.model.parameters(), lr=self.args.learning_rate, momentum=0.9, weight_decay=0.001)
         return model_optim
 
     def _select_criterion(self):
-        # criterion = nn.MSELoss()
-        # 假设你有一个二分类问题，其中类别 0 的样本数量是类别 1 的 10 倍
-        # 设置更高的权重给较少的类别（类别 1）
-        # 权重移到相同设备
-        weights = torch.tensor([1.0, 0.3])
+        weights = {class_label: self.total_samples / count for class_label, count in self.dataset.label_counts.items()}
+        weights_tensor = torch.tensor([weights['normal'], weights['aggressive']])
+        print(weights_tensor)
+        weights_tensor = weights_tensor.to(self.device)
 
         # 创建带有惩罚权重的损失函数
-        criterion = nn.CrossEntropyLoss(weight=weights)
-
+        criterion = nn.CrossEntropyLoss(weight=weights_tensor)
+        # criterion = nn.CrossEntropyLoss()
+        # criterion = torch.nn.BCELoss()
+        # criterion = criterion.to(self.device)
         return criterion
 
-    def vali(self, vali_data, vali_loader, criterion):
-        total_loss = []
-        sample_true_labels = {}  # 用于存储每个样本的真实标签
-
-        sample_preds = defaultdict(list)  # 用于存储每个样本的所有预测
-
-        # 这行代码将模型设置为评估模式，通常会关闭诸如dropout等只在训练时使用的特性
+    def validate(self, vali_loader, criterion):
         self.model.eval()
-
-        # 在评估模型时不需要计算梯度，这可以减少内存使用并加速计算
+        total_loss = 0
+        all_predictions = []
+        all_true_labels = []
         with torch.no_grad():
-            # 迭代验证数据
-            for i, (batch_x, label, sample_id, window_features, padding_mask) in enumerate(vali_loader):
+            for i, (batch_x, window_features, batch_y) in enumerate(vali_loader):
 
-                # 数据预处理和模型预测
-                # 将数据和标签转移到设备（例如GPU）
                 batch_x = batch_x.float().to(self.device)
-                padding_mask = padding_mask.float().to(self.device)
-                label = label.to(self.device)
+
                 window_features = window_features.float().to(self.device)
 
-                # 此处调用的是模型的forward()方法
-                # outputs = self.model(batch_x, window_features, padding_mask, None, None)
-                outputs = self.model(batch_x, padding_mask, None, None)
+                # 将标签转换为类别索引
+                #  true_labels = torch.argmax(batch_y, dim=1)
+                true_labels = batch_y.long()
+                true_labels = true_labels.to(self.device)
 
-                # 计算损失并收集预测
-                pred = outputs.detach().cpu()
+                outputs = self.model(batch_x, window_features)
 
-                loss = criterion(pred, label.long().squeeze().cpu())
-                # loss = criterion(pred, label.long().cpu())
+                loss = criterion(outputs, true_labels)
+                # outputs = outputs.squeeze()
+                # loss = criterion(outputs, true_labels.float())
 
-                prediction = torch.argmax(torch.nn.functional.softmax(outputs, dim=1), dim=1).cpu().numpy()
+                total_loss += loss.item()
 
-                total_loss.append(loss)
+                predictions = torch.argmax(outputs, dim=1)
 
-                label = label.squeeze().cpu().numpy()
-                sample_id = list(sample_id)
-                for sid, p, true_label in zip(sample_id, prediction, label):
-                    sample_preds[sid].append(p)
-                    sample_true_labels[sid] = true_label  # 存储或更新每个样本的真实标签
+                # predictions = (outputs > 0.5).long()
 
-        # 投票机制，并按照样本 ID 的排序得到最终预测
-        final_predictions = [Counter(sample_preds[sid]).most_common(1)[0][0] for sid in sorted(sample_true_labels)]
+                all_predictions.extend(predictions.cpu().numpy())
+                all_true_labels.extend(true_labels.cpu().numpy())
 
-        # 准确率计算
-        trues = [sample_true_labels[sid] for sid in sorted(sample_true_labels)]  # 按照 sample_id 排序的真实标签
-        accuracy = np.sum(np.array(final_predictions) == np.array(trues)) / len(trues)
+        avg_loss = total_loss / len(vali_loader)
+        avg_accuracy = accuracy_score(all_true_labels, all_predictions)
+        avg_precision = precision_score(all_true_labels, all_predictions, average='macro')
+        avg_recall = recall_score(all_true_labels, all_predictions, average='macro')
+        avg_f1 = f1_score(all_true_labels, all_predictions, average='macro')
 
-        # 计算总体损失和准确率
-        total_loss = np.average(total_loss)
+        return avg_loss, avg_accuracy, avg_precision, avg_recall, avg_f1
 
-        self.model.train()
-        return total_loss, accuracy
-
-        '''
-        preds = torch.cat(preds, 0)
-        trues = torch.cat(trues, 0)
-        probs = torch.nn.functional.softmax(preds)  # (total_samples, num_classes) est. prob. for each class and sample
-        predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
-        trues = trues.flatten().cpu().numpy()
-        accuracy = cal_accuracy(predictions, trues)
-
-        # 重置模型为训练模式
-        self.model.train()
-        return total_loss, accuracy
-        '''
 
     # 训练
     def train(self, setting):
 
         # 根据设置的参数创建用于存储模型检查点的路径
         path = os.path.join(self.args.checkpoints, setting)
+
         if not os.path.exists(path):
             # 如果路径不存在，则创建该路径
             os.makedirs(path)
+
         # 记录当前时间，用于计算训练耗时
         time_now = time.time()
 
-        # 获取训练数据的批次数量
-        train_steps = len(self.train_loader)
-        # 初始化早停机制，根据设置的耐心值来决定何时停止训练
-        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
-        # 选择优化器
+        saved_metrics_list = []
+
+        # Rebuild the model for each fold to reset weights
+        self.model = self._build_model().to(self.device)
+
+        # Reset the optimizer
         model_optim = self._select_optimizer()
+
         # 选择损失函数
         criterion = self._select_criterion()
 
-        epoch_count = 0
-        train_losses = []
-        val_losses = []
-        train_acces = []
-        val_acces = []
+        # 初始化早停机制，根据设置的耐心值来决定何时停止训练
+        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
 
-        # 对于每一个训练周期
+        # 打开一个文件用于追加写入指标
+        with open("metrics.csv", "w", newline="") as file:
+            writer = csv.writer(file)
+            # 写入表头
+            writer.writerow(
+                ['epoch', 'train_loss', 'train_acc', 'val_loss', 'val_acc', 'val_precision', 'val_recall', 'val_f1'])
+
         for epoch in range(self.args.train_epochs):
-            # 训练周期计数加1
-            epoch_count = epoch + 1
-
-            # 初始化迭代计数和训练损失列表
-            iter_count = 0
-            train_loss = []
-
-            sample_true_labels = {}  # 用于存储每个样本的真实标签
-
-            sample_preds = defaultdict(list)  # 用于存储每个样本的所有预测
 
             # 将模型设置为训练模式
             self.model.train()
+
             # 记录当前周期的开始时间
             epoch_time = time.time()
 
-            # 遍历训练数据加载器中的每个批次
-            for i, (batch_x, label, sample_id, window_features, padding_mask) in enumerate(self.train_loader):
+            total_loss = 0
+            total_acc = 0
 
-                # 迭代计数加1
-                iter_count += 1
+            # 遍历训练数据加载器中的每个批次
+            for i, (batch_x, window_features, batch_y) in enumerate(self.train_loader):
+
                 # 清除之前的梯度
                 model_optim.zero_grad()
                 # 将数据和标签转移到设备（例如GPU）
                 batch_x = batch_x.float().to(self.device)
-                padding_mask = padding_mask.float().to(self.device)
-                label = label.to(self.device)
                 window_features = window_features.float().to(self.device)
 
-                criterion = criterion.to(self.device)
+                # 将标签转换为类别索引
+                # true_labels = torch.argmax(batch_y, dim=1)
 
-                # 通过模型获取预测输出
-                # outputs = self.model(batch_x, window_features, padding_mask, None, None)
-                outputs = self.model(batch_x, padding_mask, None, None)
+                true_labels = batch_y.long()
+                true_labels = true_labels.to(self.device)
 
-                # 计算损失并添加到损失列表
-                loss = criterion(outputs, label.long().squeeze(-1))
+                outputs = self.model(batch_x, window_features)
 
-                prediction = torch.argmax(torch.nn.functional.softmax(outputs, dim=1), dim=1).cpu().numpy()
+                loss = criterion(outputs, true_labels)
+                # outputs = outputs.squeeze()
+                # loss = criterion(outputs, true_labels.float())
 
-                train_loss.append(loss.item())
-
-                label = label.squeeze().cpu().numpy()
-                sample_id = list(sample_id)
-                for sid, p, true_label in zip(sample_id, prediction, label):
-                    sample_preds[sid].append(p)
-                    sample_true_labels[sid] = true_label  # 存储或更新每个样本的真实标签
-
-                # 每100次迭代打印一次进度
-                if (i + 1) % 100 == 0:
-                    print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
-                    speed = (time.time() - time_now) / iter_count
-                    left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
-                    print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
-                    iter_count = 0
-                    time_now = time.time()
-
-                # 反向传播，梯度裁剪，参数更新
                 loss.backward()
-                nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=4.0)
+
+                clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+
                 model_optim.step()
 
-            # 打印当前周期的耗时和平均损失
-            print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+                total_loss += loss.item()
 
-            # 投票机制，并按照样本 ID 的排序得到最终预测
-            final_predictions = [Counter(sample_preds[sid]).most_common(1)[0][0] for sid in sorted(sample_true_labels)]
+                predictions = torch.argmax(outputs, dim=1)
+                # predictions = (outputs > 0.5).long()
 
-            # 准确率计算
-            trues = [sample_true_labels[sid] for sid in sorted(sample_true_labels)]  # 按照 sample_id 排序的真实标签
-            train_accuracy = np.sum(np.array(final_predictions) == np.array(trues)) / len(trues)
-            train_loss = np.average(train_loss)
+                acc = (predictions == true_labels).float().mean()
 
-            val_loss, val_accuracy = self.vali(self.vali_data, self.vali_loader, criterion.to('cpu'))
-            test_loss, test_accuracy = self.vali(self.test_data, self.test_loader, criterion.to('cpu'))
+                total_acc += acc.item()
 
-            train_losses.append(train_loss)
+            avg_train_loss = total_loss / len(self.train_loader)
+            avg_train_acc = total_acc / len(self.train_loader)
 
-            val_losses.append(val_loss)
+            val_loss, val_acc, val_precision, val_recall, val_f1 = self.validate(self.valid_loader, criterion)
 
-            train_acces.append(train_accuracy)
+            print(f"Epoch {epoch + 1}/{self.args.train_epochs}, "
+                  f"Train Loss: {avg_train_loss:.4f}, Train Acc: {avg_train_acc:.4f}, "
+                  f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}, "
+                  f"Val Precision: {val_precision:.4f}, Val Recall: {val_recall:.4f}, Val F1: {val_f1:.4f}")
 
-            val_acces.append(val_accuracy)
+            # 在每轮训练后立即将指标追加到文件
+            with open("metrics.csv", "a", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(
+                    [epoch + 1, avg_train_loss, avg_train_acc, val_loss, val_acc, val_precision, val_recall,
+                     val_f1])
 
-            print(
-                "Epoch: {0}, Steps: {1} | Train Loss: {2:.3f} Train Acc: {3:.3f} Vali Loss: {4:.3f} Vali Acc: {5:.3f} Test Loss: {6:.3f} Test Acc: {7:.3f}"
-                .format(epoch + 1, train_steps, train_loss, train_accuracy, val_loss, val_accuracy, test_loss,
-                        test_accuracy))
-            early_stopping(train_loss, self.model, path)
+            early_stopping(val_f1, self.model, path)
+
+            adjust_learning_rate(model_optim, epoch + 1, self.args)
+
             if early_stopping.early_stop:
-                print("Early stopping")
+                print(f"Early stopping at epoch {epoch + 1}")
                 break
-        # if (epoch + 1) % 5 == 0:
-        # adjust_learning_rate(model_optim, epoch + 1, self.args)
 
-        best_model_path = path + '/' + 'checkpoint.pth'
-        self.model.load_state_dict(torch.load(best_model_path))
-
-        # result save
-        folder_path = './results/' + setting + '/'
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-
-        file_name = folder_path + 'loss_and_accuracy.csv'
-
-        # 创建DataFrame
-        df = pd.DataFrame({
-            'Epoch': range(1, epoch_count + 1),
-            'Train Loss': train_losses,
-            'Validation Loss': val_losses,
-            'Train Accuracy': train_acces,
-            'Validation Accuracy': val_acces
-        })
-
-        # 将DataFrame保存为CSV
-        df.to_csv(file_name, index=False)
+        print(f"Training complete in {time.time() - time_now:.2f} seconds")
 
         return self.model
 
+    # 在一个单独的测试函数中调用
     def test(self, setting, test=0):
 
         if test:
             print('loading model')
             self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
 
-        sample_true_labels = {}  # 用于存储每个样本的真实标签
-
-        sample_preds = defaultdict(list)  # 用于存储每个样本的所有预测
-        folder_path = './test_results/' + setting + '/'
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-
+        criterion = self._select_criterion()
         self.model.eval()
+        total_loss = 0
+        all_predictions = []
+        all_true_labels = []
         with torch.no_grad():
-            for i, (batch_x, label, sample_id, window_features, padding_mask) in enumerate(self.test_loader):
+            for i, (batch_x, window_features, batch_y) in enumerate(self.test_loader):
 
-                # 数据预处理和模型预测
-                # 将数据和标签转移到设备（例如GPU）
                 batch_x = batch_x.float().to(self.device)
-                padding_mask = padding_mask.float().to(self.device)
-                label = label.to(self.device)
                 window_features = window_features.float().to(self.device)
 
-                # outputs = self.model(batch_x, window_features, padding_mask, None, None)
-                outputs = self.model(batch_x, padding_mask, None, None)
+                # 将标签转换为类别索引
+                # true_labels = torch.argmax(batch_y, dim=1)
 
-                prediction = torch.argmax(torch.nn.functional.softmax(outputs, dim=1), dim=1).cpu().numpy()
+                true_labels = batch_y.long()
+                true_labels = true_labels.to(self.device)
 
-                label = label.squeeze().cpu().numpy()
-                sample_id = list(sample_id)
-                for sid, p, true_label in zip(sample_id, prediction, label):
-                    sample_preds[sid].append(p)
-                    sample_true_labels[sid] = true_label  # 存储或更新每个样本的真实标签
+                outputs = self.model(batch_x, window_features)
 
-        print("sample_true_labels", sample_true_labels)
-        print("sample_preds", sample_preds)
+                loss = criterion(outputs, true_labels)
 
-        # 投票机制，并按照样本 ID 的排序得到最终预测
-        final_predictions = [Counter(sample_preds[sid]).most_common(1)[0][0] for sid in sorted(sample_true_labels)]
+                total_loss += loss.item()
 
-        # 准确率计算
-        trues = [sample_true_labels[sid] for sid in sorted(sample_true_labels)]  # 按照 sample_id 排序的真实标签
-        accuracy = np.sum(np.array(final_predictions) == np.array(trues)) / len(trues)
+                predictions = torch.argmax(outputs, dim=1)
 
-        # 打印每个样本的信息
-        for sid, vote_result in zip(sorted(sample_true_labels), final_predictions):
-            true_label = sample_true_labels[sid]
-            is_correct = '正确' if vote_result == true_label else '错误'
-            true_label = '正常' if true_label == 1 else '激进'
-            vote_result = '正常' if vote_result == 1 else '激进'
-            print(f'行程ID: {sid}, 行程标签: {true_label}, Voted Prediction: {vote_result}, {is_correct}')
+                all_predictions.extend(predictions.cpu().numpy())
+                all_true_labels.extend(true_labels.cpu().numpy())
 
-        # result save
-        folder_path = './results/' + setting + '/'
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        avg_accuracy = accuracy_score(all_true_labels, all_predictions)
+        avg_precision = precision_score(all_true_labels, all_predictions, average='macro')
+        avg_recall = recall_score(all_true_labels, all_predictions, average='macro')
+        avg_f1 = f1_score(all_true_labels, all_predictions, average='macro')
 
-        print('accuracy:{}'.format(accuracy))
-        file_name = 'result_classification.txt'
-        f = open(os.path.join(folder_path, file_name), 'a')
-        f.write(setting + "  \n")
-        # 打印每个样本的信息
-        for sid, vote_result in zip(sorted(sample_true_labels), final_predictions):
-            true_label = sample_true_labels[sid]
-            is_correct = '正确' if vote_result == true_label else '错误'
-            true_label = '正常' if true_label == 1 else '激进'
-            vote_result = '正常' if vote_result == 1 else '激进'
-            f.write(f'行程ID: {sid}, 行程标签: {true_label}, Voted Prediction: {vote_result}, {is_correct}')
-            f.write('\n')
-        f.write('accuracy:{}'.format(accuracy))
-        f.write('\n')
-        f.write('\n')
-        f.close()
-        return
+        print(f"Val Acc: {avg_accuracy:.4f}, "
+              f"Val Precision: {avg_precision:.4f}, Val Recall: {avg_recall:.4f}, Val F1: {avg_f1:.4f}")
+
+        conf_mat = confusion_matrix(all_true_labels, all_predictions)
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(conf_mat, annot=False, cmap="Blues", xticklabels=np.arange(3), yticklabels=np.arange(3),
+                    cbar=False, fmt="d")  # 显示数量
+
+        # 计算每个类别的准确率
+        class_accuracy = conf_mat.diagonal() / conf_mat.sum(axis=1)
+
+        # 在每个单元格中显示数量和准确率
+        for i in range(conf_mat.shape[0]):
+            for j in range(conf_mat.shape[1]):
+                plt.text(j + 0.5, i + 0.5, f"{conf_mat[i, j]} ({class_accuracy[i] * 100:.2f}%)",
+                         ha="center", va="center", color="white", fontsize=10, weight="bold")
+
+        plt.xlabel('Predicted')
+        plt.ylabel('True')
+        plt.title('Confusion Matrix (with Counts and Accuracy)')
+        plt.savefig('confusion_matrix.png')  # 保存到安全的路径
+        plt.show()
+
+    def randomforest(self):
+
+        train_x = []
+        train_y = []
+
+        for i, (batch_x, batch_y) in enumerate(self.train_loader):
+            batch_x = batch_x.float().to(self.device)
+            batch_y = batch_y.float().to(self.device)
+            train_x.append(batch_x.cpu().numpy())
+            train_y.append(batch_y.cpu().numpy())
+        train_x = np.concatenate(train_x, axis=0)
+        train_y = np.concatenate(train_y, axis=0)
+        train_y = np.argmax(train_y, axis=1)
+
+        test_x = []
+        test_y = []
+
+        for i, (batch_x, batch_y) in enumerate(self.valid_loader):
+            batch_x = batch_x.float().to(self.device)
+            batch_y = batch_y.float().to(self.device)
+            test_x.append(batch_x.cpu().numpy())
+            test_y.append(batch_y.cpu().numpy())
+        test_x = np.concatenate(test_x, axis=0)
+        test_y = np.concatenate(test_y, axis=0)
+        test_y = np.argmax(test_y, axis=1)
+
+        # 将输入数据重新塑形为2D
+        train_x = train_x.reshape(train_x.shape[0], -1)
+        test_x = test_x.reshape(test_x.shape[0], -1)
+
+        print("train_x shape:", train_x.shape)
+        print("train_y shape:", test_x.shape)
+
+        clf = RandomForestClassifier(n_estimators=100, random_state=42)
+        clf.fit(train_x, train_y)
+        y_pred = clf.predict(test_x)
+        accuracy = accuracy_score(test_y, y_pred)
+        print("Accuracy:", accuracy)
+
+        print("Confusion Matrix:")
+        print(confusion_matrix(test_y, y_pred))
+
+        print("Normalized Confusion Matrix:")
+        print(confusion_matrix(test_y, y_pred, normalize='true'))
+
+        # 绘制混淆矩阵（归一化）
+        conf_mat = confusion_matrix(test_y, y_pred, normalize='true')
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(conf_mat, annot=True, cmap="Blues", xticklabels=np.arange(3), yticklabels=np.arange(3),
+                    annot_kws={"size": 10}, fmt=".2f")
+        plt.xlabel('Predicted')
+        plt.ylabel('True')
+        plt.title('Normalized Confusion Matrix')
+        plt.savefig('confusion_matrix.png')  # 保存到安全的路径
+        plt.show()
+
+        return clf

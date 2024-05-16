@@ -1,6 +1,8 @@
 import os
 import torch
-from models import Autoformer, Transformer, TimesNet, TimesNetMod, Nonstationary_Transformer, DLinear, FEDformer, Informer, LightTS, Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, LSTM, TimesNet2
+from models import Autoformer, Transformer, TimesNet, TimesNetMod, Nonstationary_Transformer, DLinear, FEDformer, \
+    Informer, LightTS, Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, Koopa, LSTM, \
+    TimesNet2, LSTM2, TimesNet3, CNNLSTM
 
 
 # exp基类
@@ -14,6 +16,7 @@ class Exp_Basic(object):
             'TimesNetMod': TimesNetMod,
             'TimesNet': TimesNet,
             'TimesNet2': TimesNet2,
+            'TimesNet3': TimesNet3,
             'Autoformer': Autoformer,
             'Transformer': Transformer,
             'Nonstationary_Transformer': Nonstationary_Transformer,
@@ -31,9 +34,12 @@ class Exp_Basic(object):
             'iTransformer': iTransformer,
             'Koopa': Koopa,
             'LSTM': LSTM,
+            'LSTM2': LSTM2,
+            'CNNLSTM': CNNLSTM
         }
-        
-        self.train_data, self.train_loader, self.test_data, self.test_loader, self.vali_data, self.vali_loader = self._get_data()
+
+        self.dataset, self.train_dataset, self.valid_dataset, self.test_dataset, self.train_loader, self.valid_loader, \
+            self.test_loader = self._get_data()
 
         # print('train_data windows', self.train_data.windows)
         # print('train_data samples', self.test_data.samples)

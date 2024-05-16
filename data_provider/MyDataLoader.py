@@ -2,17 +2,14 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-import plotly.graph_objects as go
+from pykalman import KalmanFilter
+from scipy.stats import skew, kurtosis
 import quaternion
 from scipy.spatial.transform import Rotation as R
-from pykalman import KalmanFilter
-from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
-
-import glob
-import re
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, LabelEncoder
 from torch.utils.data import Dataset
-from data_provider.uea import subsample, interpolate_missing, Normalizer
+from collections import Counter
+
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -21,24 +18,72 @@ warnings.filterwarnings('ignore')
 class MyDataLoader(Dataset):
 
     # 重写Dataset类的__getitem__方法，使其能够按索引读取数据
-    def __getitem__(self, ind):
-        return self.instance_norm(torch.from_numpy(self.feature_df.loc[self.all_IDs[ind]].values)), \
-            torch.from_numpy(self.labels_df.loc[self.all_IDs[ind]].values)
+    def __getitem__(self, index):
+        # 根据给定的索引检索数据
+        sample_data = self.windows[index]
+
+        # 使用MinMaxScaler进行最大最小标准化
+        sample_data_reshaped = sample_data.reshape(-1, sample_data.shape[-1])
+        sample_data_normalized = self.scaler.transform(sample_data_reshaped)
+        sample_data_normalized = sample_data_normalized.reshape(sample_data.shape)
+
+        # 标准化统计数据
+        stats_normalized = self.stats_scaler.transform(self.windows_stats[index].reshape(1, -1))
+
+        # 检索标签
+        label = self.labels_encoded[index]
+
+        window_features = stats_normalized
+
+        # 将样本数据和标签转换为张量
+        sample_tensor = torch.tensor(sample_data_normalized, dtype=torch.float)
+        label_tensor = torch.tensor(label, dtype=torch.long)
+        window_features_tensor = torch.tensor(window_features, dtype=torch.float).reshape(-1)
+        return sample_tensor, window_features_tensor, label_tensor
 
     def __len__(self):
         return len(self.all_IDs)
 
-    def __init__(self, root_path, file_list=None, limit_size=None, flag=None):
+    def __init__(self, root_path, file_list=None, limit_size=None, flag=None, window_size=1200, step_size=600):
 
-        self.max_seq_len = 0
-        self.class_names = 0
+        self.max_windows_num = 0
         self.root_path = root_path
-        self.all_df, self.labels_df = self.load_all(root_path, file_list=file_list, flag=flag)
+        self.window_size = window_size
+        self.step_size = step_size
+        self.enc_in = 0
+        self.windows, self.labels, self.windows_stats = self.load_all(root_path, file_list=file_list,
+                                                                                       flag=flag)
+
+        # 假设 self.labels 包含所有标签
+        self.label_counts = Counter(self.labels)
+        print("标签分布：", self.label_counts)
+
+        self.all_IDs = list(range(len(self.windows)))
+        self.num_class = len(set(self.labels))
+
+        self.scaler = MinMaxScaler()
+
+        # 对所有特征进行拟合，以便进行标准化
+        all_data = np.vstack(self.windows)
+        all_data_reshaped = all_data.reshape(-1, all_data.shape[-1])
+
+        self.scaler.fit(all_data_reshaped)
+
+        # 使用 np.vstack 将所有扁平化的NumPy数组垂直堆叠起来
+        windows_stats = np.vstack(self.windows_stats)
+
+        self.stats_scaler = MinMaxScaler()
+        self.stats_scaler.fit(windows_stats)
+
+        # 编码 labels
+        self.label_encoder = LabelEncoder()
+        self.labels_encoded = self.label_encoder.fit_transform(self.labels)  # 转换字符串标签为整数索引
 
     def load_all(self, root_path, file_list=None, flag=None):
 
-        data_list = []
-        label_list = []
+        all_data = []
+        # 初始化空的DataFrame用于存储标签和trip_id的对应关系
+        labels = []
 
         # 遍历所有驾驶员
         for driver in os.listdir(root_path):
@@ -59,6 +104,9 @@ class MyDataLoader(Dataset):
                     print("文件夹：", trip, "已经存在清洗后的数据！")
                     temp_data = pd.read_csv(os.path.join(trip_dir, 'clean_data.csv'))
                 else:
+
+                    os_type = trip.split('_')[3]  # 假设标签是文件夹名称的第三个元素，且normal为0，abnormal为1
+
                     # 读取每个行程的CSV文件
                     accelerometer = self.read_with_template(os.path.join(trip_dir, 'Accelerometer.csv'),
                                                             ['time', 'seconds_elapsed', 'x', 'y', 'z'])
@@ -76,14 +124,20 @@ class MyDataLoader(Dataset):
 
                     gps = self.read_with_template(os.path.join(trip_dir, 'Location.csv'),
                                                   ['time', 'bearing', 'bearingAccuracy', 'speed',
-                                                   'speedAccuracy', 'latitude', 'longitude'])
+                                                   'speedAccuracy', 'altitude', 'latitude', 'longitude'])
 
                     gps['speed'] = gps['speed'] * 3.6  # 将速度从m/s转换为km/h
 
                     temp_data = self.merge_data(accelerometer, gravity, gyroscope, magnetometer, gps, orientation)
 
+                    '''
+                    temp_data = temp_data[(temp_data['speedAccuracy'] >= 0)
+                                          & (temp_data['speedAccuracy'] <= 50)
+                                          & (temp_data['bearingAccuracy'] >= 0)
+                                          & (temp_data['bearingAccuracy'] <= 50)]
+                    '''
                     # 重定向
-                    self.reorientation(temp_data)
+                    self.reorientation(temp_data, os_type)
 
                     temp_data = self.resample_time_series(temp_data, interval='50ms')
 
@@ -112,51 +166,78 @@ class MyDataLoader(Dataset):
                     print("Columns with missing values:", temp_data.columns[temp_data.isnull().any()])
 
                     # 使用上一个值填充空值
-                    temp_data.fillna(method='ffill', inplace=True)
+                    temp_data.fillna(0, inplace=True)
 
-                data_list.append(temp_data)
+                trip_id = trip.split('_')[0] + '_' + trip.split('_')[1]  # 假设行程ID是文件夹名称的前两个元素
+
+                temp_data['trip_id'] = trip_id
+
+                temp_data = self.create_sliding_windows(temp_data, self.window_size, self.step_size)
+
+                # 将segments转化为窗口的列表
+                windows = [temp_data[i] for i in range(temp_data.shape[0])]
+
+                all_data.extend(windows)
 
                 # 提取行程标签
-                trip_label = trip.split('_')[2]  # 假设标签是文件夹名称的第三个元素，且normal为0，abnormal为1
+                trip_label = trip.split('_')[2]  # 标签是文件夹名称的第三个元素
 
-                label_list.append(trip_label)
+                # 创建一个与窗口数量相同的标签数组
+                window_labels = [trip_label] * len(windows)
 
-                print("行程ID：", len(label_list) - 1, "   行程标签：", trip_label, "    行程长度：", time_len)
+                labels.extend(window_labels)
+
+                print("行程ID：", trip_id, "   行程标签：", trip_label, "    行程长度：", time_len)
 
                 print("**********************************************************")
 
-        print("数据读取结束！共读取", len(data_list), "次行程。")
+        print("数据读取结束！共读取", len(all_data), "次行程。")
 
-        # 使用enumerate获取每个DataFrame及其在列表中的索引
-        # 然后为每个DataFrame设置新的索引，这个索引是其在列表中的位置
-        # 最后将这些DataFrame合并成一个大的DataFrame
-        data = pd.concat([df.set_index([len(df) * [idx]]) for idx, df in enumerate(data_list)])
+        # 假设 windows 是之前你创建的窗口列表
+        windows_stats = []
 
-        features_name = [
-            'roll', 'pitch', 'yaw',
-            'z_gra_clean', 'y_gra_clean', 'x_gra_clean',
-            'z_mag', 'y_mag', 'x_mag',
-            # 'bearingAccuracy', 'speedAccuracy',
-            'speed', 'bearing',
-            # 'longitude', 'latitude',
-             'x_acc_clean', 'y_acc_clean', 'z_acc_clean',
-             'x_gyro', 'y_gyro', 'z_gyro'
-        ]
+        # 遍历每个窗口
+        for window in all_data:
+            # 计算基本统计信息
+            mean = np.mean(window, axis=0)
+            std = np.std(window, axis=0)
+            min_val = np.min(window, axis=0)
+            max_val = np.max(window, axis=0)
 
-        data = data[features_name]
+            # 计算分位数
+            q25 = np.percentile(window, 25, axis=0)
+            median = np.median(window, axis=0)
+            q75 = np.percentile(window, 75, axis=0)
 
-        # 确定最大行数
-        self.max_seq_len = max(data.shape[0] for data in data_list)
+            # 计算峰度和偏度
+            kurt = kurtosis(window, axis=0, fisher=True)  # Fisher’s definition (normalized) default is True
+            skewness = skew(window, axis=0)
 
-        labels = pd.Series(label_list, dtype="category")
+            # 假设 kurt 是一个包含峰度值的 NumPy 数组
+            if np.isnan(kurt).any():
+                # 至少有一个元素是 NaN，将其替换为0或其他默认值
+                kurt = np.nan_to_num(kurt, nan=0)
+                # 或者，如果只想检查而不替换，可以这样做：
 
-        self.class_names = labels.cat.categories
+            # 假设 kurt 是一个包含峰度值的 NumPy 数组
+            if np.isnan(skewness).any():
+                # 至少有一个元素是 NaN，将其替换为0或其他默认值
+                skewness = np.nan_to_num(skewness, nan=0)
+                # 或者，如果只想检查而不替换，可以这样做：
 
-        # 将标签转换的编码转化为df
-        labels_df = pd.DataFrame(labels.cat.codes,
-                                 dtype=np.int8)  # int8-32 gives an error when using nn.CrossEntropyLoss
+            # 组合所有统计数据到一个列表中
+            stats = [
+                mean, std, min_val, max_val, q25, median, q75, kurt, skewness
+            ]
 
-        return data, labels_df
+            # 将统计数据转换为 numpy 数组并添加到 windows_stats 列表中
+            stats_array = np.array(stats).flatten()  # 可以选择保持结构或展平
+            windows_stats.append(stats_array)
+
+        # 确定样本最大窗口数
+        # self.max_windows_num = max([len(data) for data in all_data])
+
+        return all_data, labels, windows_stats
 
     # 重采样
     def resample_time_series(self, data, interval='20ms'):
@@ -170,11 +251,6 @@ class MyDataLoader(Dataset):
         data['time'] = data['time'].dt.tz_localize('UTC').dt.tz_convert('Asia/Shanghai')
 
         data.set_index('time', inplace=True)  # 设置时间戳为索引
-
-        column_to_plot = 'x_acc'
-
-        # 原始数据的时间索引
-        original_index = data.index
 
         # 生成均匀时间索引
         start_time = data.index.min()
@@ -193,7 +269,6 @@ class MyDataLoader(Dataset):
 
         # 筛选出只包含均匀时间索引的部分
         data_uniform = data_interpolated.reindex(uniform_index)
-
 
         data_uniform = data_uniform.reset_index()
 
@@ -227,40 +302,7 @@ class MyDataLoader(Dataset):
         """
         print("重采样结束！")
 
-
         return data_uniform
-
-
-    def split_by_ratio(self, ratio, random_seed):
-        # 把DataFrame转换为列表，每个元素是一个小的DataFrame
-        groups = list(self.all_df.groupby(by=self.all_df.index))
-
-        # 使用train_test_split随机划分数据集
-        train_set, test_set = train_test_split(groups, test_size=1 - ratio, random_state=random_seed)
-
-        # validate_set, test_set = train_test_split(test_set, test_size=0.7, random_state)
-
-        train_set = pd.concat([group[1] for group in train_set], axis=0)
-        test_set = pd.concat([group[1] for group in test_set], axis=0)
-
-        # validate_set = pd.concat([group[1] for group in validate_set], axis=0)
-        validate_set = test_set
-        return train_set, test_set, validate_set
-
-    """
-    def split_by_ratio(self, ratio=0.7):
-        data_group = self.all_df.groupby(by=self.all_df.index)
-
-        groups = list(data_group)
-        train_groups = groups[:int(len(groups) * ratio)]  # 前70%的组
-        test_groups = groups[int(len(groups) * ratio):]  # 后30%的组
-
-        # 将组合并为DataFrame
-        train_set = pd.concat([group for name, group in train_groups])
-        test_set = pd.concat([group for name, group in test_groups])
-
-        return train_set, test_set
-    """
 
     # 欧拉角转旋转矩阵
     def euler_to_rot(self, euler):
@@ -268,22 +310,27 @@ class MyDataLoader(Dataset):
         rotation_matrix = r.as_matrix()
         return rotation_matrix
 
-    def phone_to_ENU_to_NED_to_car(self, data_phone, phone_quaternion, yaw_car):
-        # 步骤1: 从手机坐标系到ENU坐标系
-        r_phone = quaternion.as_rotation_matrix(phone_quaternion)
-        data_ENU = np.dot(r_phone, data_phone)
+    def phone_to_ENU_to_NED_to_car(self, data_phone, phone_quaternion, yaw_car, os_type):
+
+        # 使用四元数直接对手机坐标系的数据进行旋转
+        data_ENU_quat = phone_quaternion * quaternion.quaternion(0, *data_phone) * phone_quaternion.inverse()
+        data_ENU = np.array([data_ENU_quat.x, data_ENU_quat.y, data_ENU_quat.z])
 
         # 步骤2: 从ENU坐标系到NED坐标系
         ENU_to_NED = np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])
         data_NED = np.dot(ENU_to_NED, data_ENU)
 
         # 步骤3: 从NED坐标系到车辆坐标系
-        rot_NED_to_car = self.euler_to_rot([yaw_car, 180, 0])
-        data_car = np.dot(rot_NED_to_car, data_NED)
+        # 从NED坐标系到车辆坐标系
+        # 计算车辆坐标系的四元数旋转
+        # 欧拉角转四元数（yaw, pitch=180, roll=0）
+        rot_NED_to_car_quaternion = quaternion.from_euler_angles([np.deg2rad(yaw_car), 0, 0])
+        data_car_quat = rot_NED_to_car_quaternion * quaternion.quaternion(0, *data_NED) * rot_NED_to_car_quaternion.inverse()
+        data_car = np.array([data_car_quat.x, data_car_quat.y, data_car_quat.z])
 
         return data_car
 
-    def reorientation(self, data):
+    def reorientation(self, data, os_type):
         print("重定向开始！")
 
         for index, row in data.iterrows():
@@ -292,13 +339,16 @@ class MyDataLoader(Dataset):
 
             gra_phone = np.matrix(row[['x_gra', 'y_gra', 'z_gra']].values).T
 
-            phone_quaternion = quaternion.quaternion(row['qw'], row['qx'], row['qy'], row['qz'])
+            if os_type == 'ios':
+                phone_quaternion = quaternion.quaternion(row['qw'], -row['qx'], -row['qy'], row['qz'])
+            elif os_type == 'android':
+                phone_quaternion = quaternion.quaternion(row['qw'], row['qx'], row['qy'], row['qz'])
 
             yaw_car = row['bearing'] % 360
 
-            acc_car = self.phone_to_ENU_to_NED_to_car(acc_phone, phone_quaternion, yaw_car)
+            acc_car = self.phone_to_ENU_to_NED_to_car(acc_phone, phone_quaternion, yaw_car, os_type)
 
-            gra_car = self.phone_to_ENU_to_NED_to_car(gra_phone, phone_quaternion, yaw_car)
+            gra_car = self.phone_to_ENU_to_NED_to_car(gra_phone, phone_quaternion, yaw_car, os_type)
 
             acc_car = acc_car.tolist()
 
@@ -423,52 +473,65 @@ class MyDataLoader(Dataset):
 
         return merge_data_10_hz
 
-    def acc_clean_figure(self, accelerometer_clean):
-        signal = go.Figure()
-
-        accelerometer_clean.index = pd.to_datetime(accelerometer_clean['time'], origin='1970-01-01 08:00:00',
-                                                   unit='ns')
-
-        # signal.add_trace(go.Scatter(x = GPS_10Hz.index , y = GPS_10Hz['speed'], name = 'speed', mode = 'markers'))
-
-        signal.add_trace(go.Scatter(x=accelerometer_clean.index, y=accelerometer_clean['x_acc'], name='x'))
-        signal.add_trace(go.Scatter(x=accelerometer_clean.index, y=accelerometer_clean['y_acc'], name='y'))
-        signal.add_trace(go.Scatter(x=accelerometer_clean.index, y=accelerometer_clean['z_acc'], name='z'))
-        signal.add_trace(
-            go.Scatter(x=accelerometer_clean.index, y=accelerometer_clean['x_acc_clean'], name='x_clean'))
-        signal.add_trace(
-            go.Scatter(x=accelerometer_clean.index, y=accelerometer_clean['y_acc_clean'], name='y_clean'))
-        signal.add_trace(
-            go.Scatter(x=accelerometer_clean.index, y=accelerometer_clean['z_acc_clean'], name='z_clean'))
-
-        signal.show()
-
     def read_with_template(self, filename, template):
         df = pd.read_csv(filename, usecols=template)
         return df
 
+    def slide_window(self, rows, window_size, step_size):
+        '''
+        函数功能：
+        生成切片列表截取数据，按指定窗口宽度的50%重叠生成；
+        --------------------------------------------------
+        参数说明：
+        rows：excel文件中的行数；
+        size：窗口宽度；
+        '''
 
-"""
-    def pad_data_to_max_rows(self, dataList):
+        start = 0
+        s_num = (rows - window_size) // step_size  # 计算滑动次数
+        new_rows = window_size + (step_size * s_num)  # 为保证窗口数据完整，丢弃不足窗口宽度的采样数据
 
-        # 根据dataList中具有最大行数的数据，对其他数据进行零填充。
+        while True:
+            if (start + window_size) > new_rows:  # 丢弃不是完整窗口的数据
+                return
+            yield start, start + window_size
+            start += step_size
 
-        # 参数:
-           # dataList (list of np.array): 待填充的数据列表。
+    def create_sliding_windows(self, temp_data, window_size, step_size):
+        """
+        在 DataFrame 的每个样本内创建滑动窗口。
 
-        #  padded_dataList (list of np.array): 填充后的数据列表。
+        参数:
+        window_size (int): 每个窗口的大小。
+        step_size (int): 创建下一个窗口时向前移动的步数。
 
+        返回:
+        windows (list): 包含所有窗口的列表。
+        samples (list): 包含每个窗口对应的样本索引的列表。
+        padding_masks (list): 每个窗口的填充掩码列表。
+        """
 
-        # 2. 如果某个数据的行数小于最大行数，使用零填充它
-        padded_dataList = []
-        for data in dataList:
-            if data.shape[0] < max_rows:
-                # 使用零进行填充
-                padding = np.zeros((max_rows - data.shape[0], data.shape[1]), dtype=data.dtype)
-                padded_data = np.vstack((data, padding))
-            else:
-                padded_data = data
-            padded_dataList.append(padded_data)
+        features_name = [
+            'roll', 'pitch', 'yaw',
+            'z_gra_clean', 'y_gra_clean', 'x_gra_clean',
+            'z_mag', 'y_mag', 'x_mag',
+            'speed', 'bearing', 'altitude', 'longitude', 'latitude',
+            'x_acc_clean', 'y_acc_clean', 'z_acc_clean',
+            'x_gyro', 'y_gyro', 'z_gyro',
+        ]
 
-        return padded_dataList
-"""
+        self.enc_in = len(features_name)
+
+        # 构造一个切片，方便填充数据
+        segments = np.empty((0, window_size, len(features_name)), dtype=np.float64)
+
+        for start, end in self.slide_window(temp_data.shape[0], window_size, step_size):  # 调用滑动窗口函数，通过yield实现滑动效果；
+            temporary = []  # 每次存放各个特征的序列片段
+            for feature in features_name:
+                temporary.append(temp_data[feature][start:end])
+
+            # 将数据通过stack方法堆叠成样本 shape为（none  窗口数, sw_width 窗口长度, features  特征数）;
+            segments = np.vstack([segments, np.dstack(temporary)])  # 堆叠为三维数组
+
+        print("segments shape:", segments.shape)
+        return segments

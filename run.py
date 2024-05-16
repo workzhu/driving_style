@@ -3,6 +3,7 @@ import os
 import torch
 
 from exp.exp_classification import Exp_Classification
+from exp.exp_t_sne import Exp_Tsne
 
 import random
 import numpy as np
@@ -140,13 +141,21 @@ if __name__ == '__main__':
                 args.step_size,
                 args.learning_rate, ii)
 
-            exp = Exp_Classification(args)  # set experiments
-            print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
-            exp.train(setting)
+            if args.task_name == 'classification':
+                exp = Exp_Classification(args)  # set experiments
 
-            print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-            exp.test(setting)
-            torch.cuda.empty_cache()
+                print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
+                exp.train(setting)
+                # exp.randomforest()
+
+                print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+                exp.test(setting)
+                torch.cuda.empty_cache()
+
+            elif args.task_name == 't-sne':
+                exp = Exp_Tsne(args)
+                exp.apply_tsne()
+
     else:
         ii = 0
         setting = '{}_{}_{}_ft{}_sl{}_ll{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_dt{}_{}_{}_{}_{}_{}'.format(
@@ -169,8 +178,13 @@ if __name__ == '__main__':
             args.step_size,
             args.learning_rate, ii)
 
-        exp = Exp_Classification(args)  # set experiments
+        print(args.task_name)
 
-        print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-        exp.test(setting, test=1)
-        torch.cuda.empty_cache()
+        if args.task_name == 'classification':
+            exp = Exp_Classification(args)  # set experiments
+
+            print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+            exp.test(setting, test=1)
+            torch.cuda.empty_cache()
+        elif args.task_name == 't-sne':
+            exp = Exp_Tsne(args)
